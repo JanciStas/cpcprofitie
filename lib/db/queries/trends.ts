@@ -56,6 +56,21 @@ export type TrendsSort = 'demand' | 'price-drop';
  * the UI can render WoW arrows. Falls back to live counts when snapshots
  * haven't been computed yet (first deploy).
  */
+/**
+ * Week-over-week comparisons reaching back before this date are not rendered.
+ *
+ * market_snapshots holds a measurement of a week that cannot be recomputed, so
+ * a comparison is only honest when both sides describe the same corpus. Between
+ * 2026-08-17 and 2026-08-24 the corpus grew by roughly a third — the scraper
+ * started walking the whole autobazar.sk catalogue instead of 35 brands, and
+ * bazos.sk finished a deep cycle. A week-on-week arrow across that boundary
+ * would report a market that moved, when what moved was our coverage.
+ *
+ * Delete this once the earliest snapshot is later than the date: it is a scar
+ * from one week, not a permanent rule.
+ */
+const WOW_COMPARABLE_FROM = '2026-08-24';
+
 export async function getTrendingModels(opts: {
   limit?: number;
   sort?: TrendsSort;
@@ -175,16 +190,30 @@ async function getTrendingModelsUnsafe(opts: {
     days_to_sell_avg: number | null;
   }>;
 
+  // See WOW_COMPARABLE_FROM: a comparison that reaches back past a step change
+  // in coverage describes our scraper, not the market.
+  const prevRows = (await db.execute(sql`
+    SELECT MAX(captured_on) AS captured_on FROM market_snapshots
+    WHERE period = 'week'
+      AND captured_on < (SELECT MAX(captured_on) FROM market_snapshots WHERE period = 'week')
+  `)) as unknown as Array<{ captured_on: string | Date | null }>;
+  const previousWeek = prevRows[0]?.captured_on ?? null;
+  const comparable =
+    previousWeek == null
+      ? false
+      : new Date(previousWeek).toISOString().slice(0, 10) >= WOW_COMPARABLE_FROM;
+
   return rows.map((r) => ({
     modelId: r.model_id,
     makeSlug: r.make_slug,
     modelSlug: r.model_slug,
     modelName: r.model_name,
     countActive: r.count_active,
-    countActiveLastWeek: r.count_active_last_week,
+    countActiveLastWeek: comparable ? r.count_active_last_week : 0,
     countSoldThisWeek: r.count_sold_this_week,
     medianPriceEur: r.median_price != null ? Math.round(r.median_price) : null,
-    medianLastWeekEur: r.median_last_week != null ? Math.round(r.median_last_week) : null,
+    medianLastWeekEur:
+      comparable && r.median_last_week != null ? Math.round(r.median_last_week) : null,
     daysToSellAvg: r.days_to_sell_avg,
   }));
 }

@@ -79,6 +79,22 @@ function SourceCard({ s }: { s: PublicDataHealth['sources'][number] }) {
           className={tone(s.cohortReadyPct, 60, 40, true)}
         />
       </div>
+      {/* Both numbers were computed all along and neither reached this page, so
+          a stalled enrichment or a source that had stopped answering was
+          invisible here. The backlog once stood at 16 318 while every source
+          showed as healthy. */}
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Metric
+          label="Stiahnuté detaily"
+          value={`${s.enrichedPct}%`}
+          className={tone(s.enrichedPct, 90, 70, true)}
+        />
+        <Metric
+          label="Ceny v SLA"
+          value={`${s.freshWithinSlaPct}%`}
+          className={tone(s.freshWithinSlaPct, 95, 80, true)}
+        />
+      </div>
     </div>
   );
 }

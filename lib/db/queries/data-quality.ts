@@ -576,6 +576,17 @@ export type PublicSourceHealth = {
   nullPricePct: number;
   nullModelPct: number;
   cohortReadyPct: number;
+  /**
+   * Share of active listings whose detail page has been fetched, and the share
+   * of prices re-read inside the source's SLA.
+   *
+   * Both were computed already and neither reached this page, so a stalled
+   * enrichment or a source that had stopped responding was invisible here —
+   * the only way to notice was to ask someone to run a query. The backlog once
+   * sat at 16 318 while this page reported every source healthy.
+   */
+  enrichedPct: number;
+  freshWithinSlaPct: number;
 };
 
 export type PublicDataHealth = {
@@ -613,6 +624,8 @@ export function toPublicDataHealth(r: DataQualityReport): PublicDataHealth {
       nullPricePct: c.nullPricePct,
       nullModelPct: c.nullModelPct,
       cohortReadyPct: c.cohortReadyPct,
+      enrichedPct: r.enrichment.find((e) => e.source === c.source)?.enrichedPct ?? 0,
+      freshWithinSlaPct: r.freshness.find((f) => f.source === c.source)?.pctWithinSla ?? 0,
     })),
   };
 }
