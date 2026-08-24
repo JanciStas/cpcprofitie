@@ -91,3 +91,40 @@ describe('candidates measured and rejected', () => {
     });
   });
 });
+
+describe('brand-scoped shorthands', () => {
+  it('reads a BMW series written as a bare number', () => {
+    // A bare digit was rejected as a model because it would collide across
+    // brands. Scoped to a brand there is nothing to collide with, and 226
+    // listings sat on that over-broad reading.
+    expect(parseMakeModel('BMW 1 120d xDrive, 4X4, Navi')).toEqual({
+      makeSlug: 'bmw',
+      modelSlug: 'rad-1',
+    });
+    expect(parseMakeModel('BMW 3 318 d Automat, Xenóny')).toEqual({
+      makeSlug: 'bmw',
+      modelSlug: 'rad-3',
+    });
+  });
+
+  it('still refuses a bare digit that is not brand-scoped', () => {
+    // MG 3 is a real model spelled mg3; a loose digit rule would have made
+    // every "<brand> 3" into a series.
+    expect(parseMakeModel('Fiat 3 nieco')).toEqual({ makeSlug: 'fiat', modelSlug: null });
+  });
+
+  it('reads the Czech word order for a Mercedes class', () => {
+    expect(parseMakeModel('Mercedes-Benz Třída C 2.2 CDI C 220')).toEqual({
+      makeSlug: 'mercedes-benz',
+      modelSlug: 'c-trieda',
+    });
+  });
+
+  it('looks past a body descriptor to find the model', () => {
+    // "MINI 3-door Cooper SE" names the body where the model goes.
+    expect(parseMakeModel('MINI 3-door Cooper SE 32 kWh')).toEqual({
+      makeSlug: 'mini',
+      modelSlug: 'cooper',
+    });
+  });
+});

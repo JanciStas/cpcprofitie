@@ -53,11 +53,12 @@ const BRAND_ALIASES: Record<string, string> = {
  */
 const EXTRA_MODELS: Record<string, readonly string[]> = {
   audi: ['a1', 'a7', 'q2', 'q4', 'tt', 'r8', '80', 's5', 's6', 's7', 's8', 'sq5', 'sq7', 'rs3', 'rs6'],
-  bmw: ['i3', 'i4', 'm2', 'm3', 'm4', 'm5', 'z3', 'z4', 'ix1', 'xm', 'rad-2', 'rad-6', 'rad-8'],
+  bmw: ['i3', 'i4', 'i5', 'm2', 'm3', 'm4', 'm5', 'm6', 'z3', 'z4', 'ix1', 'xm', 'rad-2', 'rad-4', 'rad-6', 'rad-8'],
   citroen: ['xsara', 'ds3', 'c1'],
   fiat: ['scudo', 'fiorino', '500c', 'stilo', 'fullback'],
   ford: ['fusion', 'ecosport', 'edge', 'ka', 'explorer', 'f-150', 'b-max', 'escort', 'tourneo'],
-  hyundai: ['accent', 'getz', 'galloper', 'h1', 'ix55', 'terracan', 'ioniq'],
+  honda: ['e'],
+  hyundai: ['accent', 'getz', 'galloper', 'h1', 'ix55', 'terracan', 'ioniq', 'elantra'],
   iveco: ['eurocargo'],
   kia: ['optima', 'proceed', 'soul', 'carnival', 'stinger'],
   lexus: ['lbx', 'rz'],
@@ -99,7 +100,30 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
   mitsubishi: { l200: 'l-200' },
   toyota: { rav: 'rav4' },
   volkswagen: { 'id-3': 'id3', 'id-4': 'id4', 'id-5': 'id5' },
+  // A bare series number is how half of these are written ("BMW 1 120d
+  // xDrive", "BMW 3 318 d"). A bare digit was rejected as a MODEL because it
+  // would collide across brands — but scoped to a brand there is nothing to
+  // collide with, and 226 listings sat on that over-broad reading.
+  bmw: {
+    '1': 'rad-1',
+    '2': 'rad-2',
+    '3': 'rad-3',
+    '4': 'rad-4',
+    '5': 'rad-5',
+    '6': 'rad-6',
+    '7': 'rad-7',
+    '8': 'rad-8',
+  },
   'mercedes-benz': {
+    // Czech sellers write "Mercedes-Benz Třída C"; the class letter follows
+    // the word instead of preceding it, so the pair arrives reversed.
+    'trida-a': 'a-trieda',
+    'trida-b': 'b-trieda',
+    'trida-c': 'c-trieda',
+    'trida-e': 'e-trieda',
+    'trida-g': 'g-trieda',
+    'trida-s': 's-trieda',
+    'trida-v': 'v-trieda',
     a: 'a-trieda',
     b: 'b-trieda',
     c: 'c-trieda',
@@ -122,7 +146,23 @@ const MODEL_ALIASES: Record<string, Record<string, string>> = {
 const TOKEN_ALIASES: Record<string, string> = {
   rada: 'rad',
   serie: 'rad',
+  trida: 'trida',
+  trieda: 'trida',
 };
+
+/**
+ * Tokens that describe the body and sit where a model name would.
+ *
+ * "MINI 3-door Cooper SE" names the body before the model, so the lookup saw
+ * `3-door` and gave up. Skipping it finds `cooper`, which is the cohort the
+ * car actually belongs to. Kept to a short list of unmistakable body words —
+ * anything vaguer would start swallowing real model names.
+ */
+const BODY_DESCRIPTORS = new Set(['3-door', '5-door', '3-dvere', '5-dvere']);
+
+export function isBodyDescriptor(token: string): boolean {
+  return BODY_DESCRIPTORS.has(token);
+}
 
 /**
  * Measured and deliberately NOT added. Each looks like a model and is not:

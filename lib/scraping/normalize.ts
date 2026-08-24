@@ -1,5 +1,11 @@
 import type { RawFuel, RawTransmission } from './types';
-import { canonicalModel, canonicalToken, modelsFor, resolveBrand } from './vehicle-dictionary';
+import {
+  canonicalModel,
+  canonicalToken,
+  isBodyDescriptor,
+  modelsFor,
+  resolveBrand,
+} from './vehicle-dictionary';
 
 const FUEL_MAP: Record<string, RawFuel> = {
   // SK
@@ -134,7 +140,9 @@ export function parseMakeModel(title: string | null | undefined): {
     const brand = pairedBrand ?? resolveBrand(tokens[i]);
     if (!brand) continue;
 
-    const after = i + (pairedBrand ? 2 : 1);
+    let after = i + (pairedBrand ? 2 : 1);
+    // "MINI 3-door Cooper SE" puts the body where the model goes.
+    if (tokens[after] && isBodyDescriptor(tokens[after]!)) after += 1;
     const known = modelsFor(brand);
     const one = tokens[after] ?? null;
     const two = one && tokens[after + 1] ? `${one}-${tokens[after + 1]}` : null;
