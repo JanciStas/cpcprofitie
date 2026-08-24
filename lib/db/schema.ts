@@ -393,6 +393,28 @@ export const scrapeCursors = pgTable('scrape_cursors', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Where a cron-driven backfill got to.
+ *
+ * The backfills walk by id and hand `nextCursor` back to their caller, which
+ * works for a script in a loop and not at all for a cron: a cron fires the same
+ * URL every time, so without somewhere to put the cursor every run repeats the
+ * first batch for ever. That is why none of the seven tools under
+ * app/api/admin was ever scheduled.
+ *
+ * Rows whose field stays NULL after a successful pass (a title that resolves to
+ * no model, an advert with no year printed anywhere) sit at the head of the set
+ * permanently, so a cursor is the only thing that lets the walk finish.
+ */
+export const jobCursors = pgTable('job_cursors', {
+  jobKey: varchar('job_key', { length: 64 }).primaryKey(),
+  /** Highest id processed. NULL means "start from the beginning". */
+  afterId: bigint('after_id', { mode: 'bigint' }),
+  /** Bumped every time the set is exhausted and the cursor resets to the top. */
+  passNo: integer('pass_no').notNull().default(1),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const listingPriceHistory = pgTable(
   'listing_price_history',
   {

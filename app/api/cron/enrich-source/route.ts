@@ -7,9 +7,24 @@ import { persistDetails, runEnrichment } from '@/lib/scraping';
 import { ALL_SOURCES, type Source } from '@/lib/scraping';
 import { pickSource } from '@/lib/scraping/rotation';
 
-// Server-side detail enrichment for a single source. Driven by a local Bash
-// loop that POSTs repeatedly until { done: true }. Each invocation runs as
-// many 50-row batches as fit in the 280s budget (≈ 230 listings @ 1.2s).
+// Server-side detail enrichment for a single source. Each invocation runs as
+// many batches as fit in the 280s budget (≈ 200 listings).
+//
+// SCHEDULE, and why it is what it is (vercel.json cannot hold comments).
+//
+// This used to be seven runs a day for all three sources together: roughly
+// 1 400 rows, against an intake that reached 10 766 in a single day during a
+// deep catalogue cycle. The backlog therefore only ever grew -- it sat at
+// 16 318 -- and the corpus only filled in while somebody sat and drove a loop
+// by hand. It is now twice an hour per source on staggered minutes, about
+// 9 600 rows a day, which drains the backlog and stays ahead of intake.
+//
+// Deliberately staggered, and deliberately NOT partitioned. enrich.ts paces
+// itself at >= 1.5s per fetch, but that budget is per process: three parallel
+// streams send three times as fast and the host cannot know the others exist.
+// Three streams plus a full catalogue walk is exactly what got the Vercel
+// egress IP refused by autobazar.sk for four days. One source touched for
+// ~280s twice an hour is around 0.1 requests a second averaged out.
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 

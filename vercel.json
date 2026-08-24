@@ -1,18 +1,84 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "crons": [
-    { "path": "/api/cron/dispatch-scrape?source=bazos.sk", "schedule": "10 */4 * * *" },
-    { "path": "/api/cron/dispatch-scrape?source=autobazar.sk", "schedule": "25 */4 * * *" },
-    { "path": "/api/cron/dispatch-scrape?source=autobazar.eu", "schedule": "40 */4 * * *" },
-    { "path": "/api/cron/enrich-source?mode=unenriched-newest", "schedule": "55 */4 * * *" },
-    { "path": "/api/cron/enrich-source?mode=unenriched", "schedule": "15 1,9,17 * * *" },
-    { "path": "/api/cron/weekly-maintenance", "schedule": "0 2 * * 0" },
-    { "path": "/api/cron/check-removed", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/daily-price-snapshot", "schedule": "0 4 * * *" },
-    { "path": "/api/cron/detect-sold", "schedule": "0 5 * * *" },
-    { "path": "/api/cron/watchlist-alerts", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/weekly-digest", "schedule": "0 7 * * 1" },
-    { "path": "/api/cron/data-quality-alert", "schedule": "0 8 * * *" }
+    {
+      "path": "/api/cron/dispatch-scrape?source=bazos.sk",
+      "schedule": "10 */4 * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-scrape?source=autobazar.sk",
+      "schedule": "25 */4 * * *"
+    },
+    {
+      "path": "/api/cron/dispatch-scrape?source=autobazar.eu",
+      "schedule": "40 */4 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-source?source=bazos.sk",
+      "schedule": "5,35 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-source?source=autobazar.eu",
+      "schedule": "20,50 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-source?source=autobazar.sk",
+      "schedule": "12,42 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-source?mode=unenriched-newest",
+      "schedule": "55 */4 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-source?mode=null-description",
+      "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/admin/classify-vehicles",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/admin/backfill-model-id",
+      "schedule": "20 1 * * *"
+    },
+    {
+      "path": "/api/admin/backfill-year",
+      "schedule": "40 1 * * *"
+    },
+    {
+      "path": "/api/admin/backfill-mileage",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-maintenance",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/check-removed",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/daily-price-snapshot",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/detect-sold",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/watchlist-alerts",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/data-quality-alert",
+      "schedule": "0 8 * * *"
+    }
   ]
 }

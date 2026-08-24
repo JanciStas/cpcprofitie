@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { isAdminEmail } from '@/lib/auth/admin';
+import { loadJobCursor, saveJobCursor } from '@/lib/analytics/job-cursor';
 import { getCurrentUser } from '@/lib/auth/server';
 import { backfillMileage } from '@/lib/analytics/backfill-mileage';
 
@@ -31,12 +32,27 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : undefined;
   // Pass ?afterId=<nextCursor> from the previous response to continue the walk.
   const afterIdParam = url.searchParams.get('afterId');
-  const afterId = afterIdParam && /^\d+$/.test(afterIdParam) ? BigInt(afterIdParam) : undefined;
+  const explicitAfterId =
+    afterIdParam && /^\d+$/.test(afterIdParam) ? BigInt(afterIdParam) : undefined;
+  // A cron fires the same URL every time, so with no cursor it would repeat
+  // the first batch for ever. An explicit ?afterId still wins, which keeps the
+  // hand-driven scripts working exactly as before.
+  const persisted = explicitAfterId == null ? await loadJobCursor('backfill-mileage') : null;
+  const afterId = explicitAfterId ?? persisted?.afterId ?? undefined;
 
   const startedAt = Date.now();
   try {
     const stats = await backfillMileage({ dryRun, limit, afterId });
-    return NextResponse.json({ stats, elapsedMs: Date.now() - startedAt });
+    // Only the scheduled path owns the cursor. A dry run must not move it, and
+    // neither must a manual call that passed its own position.
+    if (!dryRun && explicitAfterId == null) {
+      await saveJobCursor('backfill-mileage', stats.nextCursor);
+    }
+    return NextResponse.json({
+      stats,
+      pass: persisted?.passNo ?? null,
+      elapsedMs: Date.now() - startedAt,
+    });
   } catch (e) {
     Sentry.captureException(e, { tags: { component: 'backfill-mileage-api' } });
     return NextResponse.json(

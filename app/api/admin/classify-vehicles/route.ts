@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { isAdminEmail } from '@/lib/auth/admin';
+import { loadJobCursor, saveJobCursor } from '@/lib/analytics/job-cursor';
 import { getCurrentUser } from '@/lib/auth/server';
 import { classifyVehicles } from '@/lib/analytics/classify-vehicles';
 
@@ -34,12 +35,23 @@ export async function GET(request: Request) {
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : undefined;
   // Pass ?afterId=<nextCursor> from the previous response to continue the walk.
   const afterIdParam = url.searchParams.get('afterId');
-  const afterId = afterIdParam && /^\d+$/.test(afterIdParam) ? BigInt(afterIdParam) : undefined;
+  const explicitAfterId =
+    afterIdParam && /^\d+$/.test(afterIdParam) ? BigInt(afterIdParam) : undefined;
+  // Same reason as the other backfills: a cron cannot carry the cursor itself.
+  const persisted = explicitAfterId == null ? await loadJobCursor('classify-vehicles') : null;
+  const afterId = explicitAfterId ?? persisted?.afterId ?? undefined;
 
   const startedAt = Date.now();
   try {
     const stats = await classifyVehicles({ dryRun, limit, afterId });
-    return NextResponse.json({ stats, elapsedMs: Date.now() - startedAt });
+    if (!dryRun && explicitAfterId == null) {
+      await saveJobCursor('classify-vehicles', stats.nextCursor);
+    }
+    return NextResponse.json({
+      stats,
+      pass: persisted?.passNo ?? null,
+      elapsedMs: Date.now() - startedAt,
+    });
   } catch (e) {
     Sentry.captureException(e, { tags: { component: 'classify-vehicles-api' } });
     return NextResponse.json(
