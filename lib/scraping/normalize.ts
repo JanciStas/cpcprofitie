@@ -1,5 +1,5 @@
 import type { RawFuel, RawTransmission } from './types';
-import { modelsFor, resolveBrand } from './vehicle-dictionary';
+import { canonicalModel, canonicalToken, modelsFor, resolveBrand } from './vehicle-dictionary';
 
 const FUEL_MAP: Record<string, RawFuel> = {
   // SK
@@ -123,7 +123,7 @@ export function parseMakeModel(title: string | null | undefined): {
   const tokens = title
     .trim()
     .split(WHITESPACE_RE)
-    .map((t) => slugify(t))
+    .map((t) => canonicalToken(slugify(t)))
     .filter((t) => t.length > 0);
 
   for (let i = 0; i < tokens.length; i++) {
@@ -140,8 +140,13 @@ export function parseMakeModel(title: string | null | undefined): {
     const two = one && tokens[after + 1] ? `${one}-${tokens[after + 1]}` : null;
 
     // Longest match wins: "octavia-combi" before "octavia", "3-series" before "3".
-    if (two && known.has(two)) return { makeSlug: brand, modelSlug: two };
-    if (one && known.has(one)) return { makeSlug: brand, modelSlug: one };
+    // canonicalModel folds a known alternative spelling onto the entry that
+    // already exists, so "Mazda CX5" does not become a second CX-5 and split
+    // the cohort in half.
+    const twoCanon = two ? canonicalModel(brand, two) : null;
+    const oneCanon = one ? canonicalModel(brand, one) : null;
+    if (twoCanon && known.has(twoCanon)) return { makeSlug: brand, modelSlug: twoCanon };
+    if (oneCanon && known.has(oneCanon)) return { makeSlug: brand, modelSlug: oneCanon };
     // Brand recognised but the model isn't in the dictionary — attach the
     // listing to the brand and leave the model open rather than inventing one.
     return { makeSlug: brand, modelSlug: null };
