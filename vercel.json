@@ -38,11 +38,11 @@
     },
     {
       "path": "/api/admin/classify-vehicles",
-      "schedule": "0 1 * * *"
+      "schedule": "20 1 * * *"
     },
     {
       "path": "/api/admin/backfill-model-id",
-      "schedule": "20 1 * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/admin/backfill-year",
