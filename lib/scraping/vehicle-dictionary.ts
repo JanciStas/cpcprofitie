@@ -165,6 +165,45 @@ export function isBodyDescriptor(token: string): boolean {
 }
 
 /**
+ * BMW chassis codes, which sit where the model name would.
+ *
+ * "BMW E46 330d", "BMW F10 530d xDrive", "BMW E30 CABRIO" — the generation
+ * code comes first and the series is in the token after it. Same shape as a
+ * body descriptor, so it is skipped the same way.
+ *
+ * Pinned to the letter-plus-two-digits form. Anything looser would swallow
+ * real names: `g20`, `f30` and `e60` are codes, but a bare `x5` is a model.
+ */
+const BMW_CHASSIS_RE = /^[efg]\d{2}$/;
+
+export function isBmwChassisCode(brand: string, token: string): boolean {
+  return brand === 'bmw' && BMW_CHASSIS_RE.test(token);
+}
+
+/**
+ * The series a BMW engine designation belongs to.
+ *
+ * BMW names its cars systematically: the first digit of "320i", "530d" or
+ * "120d" is the series. That makes the mapping exact rather than a guess, and
+ * 273 otherwise-complete listings were sitting on it.
+ *
+ * `320d` was rejected in the first mining pass as "an engine variant, not a
+ * model" — right about it being a MODEL, wrong about it being useless. Same
+ * over-broad reading that had rejected the bare series digit.
+ *
+ * Deliberately narrow: exactly three digits starting 1-8, with an optional
+ * engine letter. "5GT" has no three-digit run, "iX M60" does not start with a
+ * digit, and a Fiat 320 is not a BMW.
+ */
+const BMW_ENGINE_RE = /^([1-8])\d{2}[a-z]{0,2}$/;
+
+export function bmwSeriesFromEngineCode(brand: string, token: string): string | null {
+  if (brand !== 'bmw') return null;
+  const m = BMW_ENGINE_RE.exec(token);
+  return m ? `rad-${m[1]}` : null;
+}
+
+/**
  * Measured and deliberately NOT added. Each looks like a model and is not:
  *
  *   bmw 1/2/3/5/7      the series number alone; the dictionary holds `rad-3`

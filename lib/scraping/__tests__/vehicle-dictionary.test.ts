@@ -83,11 +83,21 @@ describe('candidates measured and rejected', () => {
   });
 
   it('leaves a listing model-less rather than inventing one', () => {
-    // A chassis code is not a model, and a brand with an unrecognised model is
-    // a clean unknown — an invented one silently poisons every median.
+    // A brand with an unrecognised model is a clean unknown — an invented one
+    // silently poisons every median.
+    expect(parseMakeModel('Subaru Uncharted 2.0')).toEqual({
+      makeSlug: 'subaru',
+      modelSlug: null,
+    });
+  });
+
+  it('still reads the series when the ad is selling the car for parts', () => {
+    // Used to return null: the chassis code blocked the lookup. Whether the
+    // listing is a whole car is is_vehicle's job, not the matcher's — here the
+    // model genuinely is a 3 series.
     expect(parseMakeModel('BMW e46 320d na diely')).toEqual({
       makeSlug: 'bmw',
-      modelSlug: null,
+      modelSlug: 'rad-3',
     });
   });
 });
@@ -126,5 +136,51 @@ describe('brand-scoped shorthands', () => {
       makeSlug: 'mini',
       modelSlug: 'cooper',
     });
+  });
+});
+
+describe('BMW engine designations', () => {
+  it('reads the series out of the engine code', () => {
+    // BMW names its cars systematically: the first digit of 320i, 530d or 120d
+    // is the series. Exact, not a guess. 273 otherwise-complete listings sat on
+    // this, rejected in the first pass as "an engine variant, not a model" --
+    // right about it not being a model, wrong about it being useless.
+    for (const [title, model] of [
+      ['BMW 320i xDrive A/T, 135kW (2015)', 'rad-3'],
+      ['BMW 530d xDrive 2017 195kW Luxury Line', 'rad-5'],
+      ['BMW 120d 130 kW | 2011 | 6-st. manuál', 'rad-1'],
+      ['BMW 420d xDrive Gran Coupé', 'rad-4'],
+    ] as const) {
+      expect(parseMakeModel(title)).toEqual({ makeSlug: 'bmw', modelSlug: model });
+    }
+  });
+
+  it('steps past a chassis code to reach the engine', () => {
+    // "BMW E46 330d" puts the generation where the model goes.
+    expect(parseMakeModel('BMW E46 330d 150kW M/6q')).toEqual({
+      makeSlug: 'bmw',
+      modelSlug: 'rad-3',
+    });
+    expect(parseMakeModel('BMW F10 530d xDrive M-Packet')).toEqual({
+      makeSlug: 'bmw',
+      modelSlug: 'rad-5',
+    });
+  });
+
+  it('lets a real model name win over the derivation', () => {
+    // X5 and i4 are models; the derivation is only ever a fallback.
+    expect(parseMakeModel('BMW X5 xDrive30d')).toEqual({ makeSlug: 'bmw', modelSlug: 'x5' });
+    expect(parseMakeModel('BMW i4 eDrive40')).toEqual({ makeSlug: 'bmw', modelSlug: 'i4' });
+  });
+
+  it('does not invent a series where there is none', () => {
+    // "5GT" has no three-digit run, "iX M60" does not start with a digit, and
+    // a three-digit Fiat is not a BMW.
+    expect(parseMakeModel('BMW 5GT 530d xDrive GT')).toEqual({
+      makeSlug: 'bmw',
+      modelSlug: null,
+    });
+    expect(parseMakeModel('BMW iX M60')).toEqual({ makeSlug: 'bmw', modelSlug: null });
+    expect(parseMakeModel('Fiat 320 nieco')).toEqual({ makeSlug: 'fiat', modelSlug: null });
   });
 });

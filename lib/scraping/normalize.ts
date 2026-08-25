@@ -1,8 +1,10 @@
 import type { RawFuel, RawTransmission } from './types';
 import {
+  bmwSeriesFromEngineCode,
   canonicalModel,
   canonicalToken,
   isBodyDescriptor,
+  isBmwChassisCode,
   modelsFor,
   resolveBrand,
 } from './vehicle-dictionary';
@@ -141,8 +143,10 @@ export function parseMakeModel(title: string | null | undefined): {
     if (!brand) continue;
 
     let after = i + (pairedBrand ? 2 : 1);
-    // "MINI 3-door Cooper SE" puts the body where the model goes.
+    // "MINI 3-door Cooper SE" puts the body where the model goes, and
+    // "BMW E46 330d" puts the generation code there. Step past either.
     if (tokens[after] && isBodyDescriptor(tokens[after]!)) after += 1;
+    if (tokens[after] && isBmwChassisCode(brand, tokens[after]!)) after += 1;
     const known = modelsFor(brand);
     const one = tokens[after] ?? null;
     const two = one && tokens[after + 1] ? `${one}-${tokens[after + 1]}` : null;
@@ -155,6 +159,11 @@ export function parseMakeModel(title: string | null | undefined): {
     const oneCanon = one ? canonicalModel(brand, one) : null;
     if (twoCanon && known.has(twoCanon)) return { makeSlug: brand, modelSlug: twoCanon };
     if (oneCanon && known.has(oneCanon)) return { makeSlug: brand, modelSlug: oneCanon };
+    // BMW names its cars after the engine and the first digit is the series,
+    // so "320i" and "530d" say rad-3 and rad-5 exactly. Tried last, so a real
+    // model name in the dictionary always wins over the derivation.
+    const series = one ? bmwSeriesFromEngineCode(brand, one) : null;
+    if (series && known.has(series)) return { makeSlug: brand, modelSlug: series };
     // Brand recognised but the model isn't in the dictionary — attach the
     // listing to the brand and leave the model open rather than inventing one.
     return { makeSlug: brand, modelSlug: null };
