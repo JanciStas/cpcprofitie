@@ -91,9 +91,20 @@ export async function GET(request: Request) {
     // fails. Two statements: the price half only updates rows the flow half
     // created, because price movement with no exposure beside it has no
     // denominator and is not publishable on its own.
-    const stats = await computeWeeklyFlow();
-    const pricedRows = await computeWeeklyPriceFlow();
-    summary.computeWeeklyFlow = { ...stats, pricedRows };
+    // `?weeks=N` recomputes the last N ISO weeks instead of just the current
+    // one. Needed because departures can be learned about long after they
+    // happened: the 2026-08-26 re-verification settled 8 293 rows whose
+    // removed_at dates fall in earlier weeks, and without this those weeks
+    // would keep the counts they had when nobody knew any better.
+    const weeks = Math.min(8, Math.max(1, Number(url.searchParams.get('weeks') ?? '1')));
+    const flows = [];
+    for (let back = weeks - 1; back >= 0; back--) {
+      const asOf = new Date(Date.now() - back * 7 * 86_400_000);
+      const stats = await computeWeeklyFlow({ asOf });
+      const pricedRows = await computeWeeklyPriceFlow({ asOf });
+      flows.push({ ...stats, pricedRows });
+    }
+    summary.computeWeeklyFlow = weeks === 1 ? flows[0] : flows;
   } catch (e) {
     if (isConnectionError(e)) {
       noteDbUnavailable(e, { step: 'weekly-maintenance.computeWeeklyFlow' });
