@@ -58,9 +58,12 @@ CREATE TABLE IF NOT EXISTS model_flow_weekly (
   price_raises              integer NOT NULL DEFAULT 0,
   cut_depth_pct_median      numeric(5,2),
 
-  -- False when the source's catalogue sweep for this window did not come round
-  -- cleanly. Without this gate our own downtime is published as market
-  -- liquidity: listings a killed run never asked for look absent.
+  -- True when the liveness instrument produced at least one result for this
+  -- source in this window. Without it, a source nobody checked and a source
+  -- where nothing left are the same row of zeroes, and only one of those is a
+  -- measurement. (An earlier draft gated on the catalogue sweep instead. That
+  -- was abandoned when absence-from-sweep was measured at zero precision --
+  -- see the header of lib/analytics/liquidity.ts.)
   sweep_complete            boolean NOT NULL DEFAULT false,
   computed_at               timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (model_id, source, window_start)

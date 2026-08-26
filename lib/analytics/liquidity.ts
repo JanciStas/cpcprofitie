@@ -35,6 +35,16 @@
 // and treating the newest week as provisional handles it; nothing handles a
 // signal whose errors all point the same way and are 100% of its output.
 //
+// THE FIRST FORTNIGHT BIASES THE OTHER WAY, and harder. Nothing was
+// liveness-checking most of the corpus before 2026-08-26, so there is a standing
+// stock of listings that are already dead and have simply never been asked. The
+// sweep will discover them over its first full pass and attribute each to the
+// week it was CONFIRMED, not the week it died. Expect the first two weeks to
+// overstate, then settle. Do not publish a rate until at least one full sweep
+// has completed — that is what the exposure floor in liquidity-estimator.ts is
+// there to enforce, and it is the reason this ships collecting rather than
+// showing.
+//
 // ── LEGACY ROWS ARE EXCLUDED ───────────────────────────────────────────────
 //
 // Until 2026-08-26 the enrichment path wrote removed_at on HTTP 403 as well —
@@ -177,10 +187,11 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
 
     if (rows.length === 0) return stats;
 
-    // sweep_complete is stored per row but means something narrower than its
-    // name once departures are confirmed-only: it records that the HEAD sweep
-    // was running for this source in this window, i.e. that a zero here is a
-    // measurement rather than an absence of instrument.
+    // sweep_complete means something narrower than the name suggests, and the
+    // narrower meaning is the useful one: it records that the liveness
+    // instrument produced at least one result for this source in this window.
+    // Without it a source nobody checked and a source where nothing left are
+    // the same row of zeroes, and only one of those is a measurement.
     const swept = (await db.execute(sql`
       SELECT source, COUNT(*)::int AS n
       FROM listings
