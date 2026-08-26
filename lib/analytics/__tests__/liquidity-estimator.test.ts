@@ -118,6 +118,24 @@ describe('source mix', () => {
     expect(one.ratePerWeek).toBeGreaterThan(0.05);
   });
 
+  it('ignores a source that has recorded no departure at all', () => {
+    // Measured: autobazar.eu carried 1 446 listing-weeks of Skoda Octavia and
+    // zero events, because its historical removals were settled before those
+    // rows were ever classified. That is an instrument that has not started,
+    // not a market where nothing sells, and standardising against it would drag
+    // every model toward zero and publish our own gap as a finding.
+    const withDeadSource = [
+      row(1, 50, 500, 'bazos.sk'),
+      row(1, 0, 5000, 'autobazar.eu'),
+    ];
+    const [est] = estimateLiquidity(withDeadSource);
+    expect(est!.ratePerWeek).toBeGreaterThan(0.05);
+  });
+
+  it('returns nothing when every source is silent', () => {
+    expect(estimateLiquidity([row(1, 0, 500, 'bazos.sk')])).toEqual([]);
+  });
+
   it('returns nothing when there is no exposure at all', () => {
     expect(estimateLiquidity([row(1, 0, 0)])).toEqual([]);
   });

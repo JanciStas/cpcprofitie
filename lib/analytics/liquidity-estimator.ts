@@ -144,6 +144,21 @@ export function posteriorRate(row: FlowInput, h0: number, priorWeeks: number): L
  * sources the way the corpus as a whole is.
  */
 export function estimateLiquidity(rows: readonly FlowInput[]): LiquidityEstimate[] {
+  // A source that has recorded exposure but not one departure has an instrument
+  // that has not started yet, not a market where nothing sells. Measured on the
+  // first real run: autobazar.eu carried 1 446 listing-weeks of Octavia and
+  // zero events, because its historical removals were settled before those rows
+  // were ever classified. Standardising against a stratum like that drags every
+  // model's rate toward zero and calls our own gap a finding. Dropped here; the
+  // weights renormalise below, and the source rejoins on its first event.
+  const eventsBySource = new Map<string, number>();
+  for (const r of rows) {
+    eventsBySource.set(r.source, (eventsBySource.get(r.source) ?? 0) + r.events);
+  }
+  const usable = rows.filter((r) => (eventsBySource.get(r.source) ?? 0) > 0);
+  if (usable.length === 0) return [];
+  rows = usable;
+
   const bySource = new Map<string, FlowInput[]>();
   for (const r of rows) {
     const list = bySource.get(r.source);
