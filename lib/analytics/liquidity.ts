@@ -109,6 +109,7 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
       WITH base AS (
         SELECT
           l.id, l.model_id, l.source, l.fingerprint, l.first_seen_at,
+          (d.description = '[GONE:reverified]') AS reverified,
           l.first_seen_alive_at AS entered_at,
           -- Exactly one tombstone is disqualifying: the bare '[GONE]' written
           -- before the reason was recorded, which may have been a 403. Anything
@@ -158,6 +159,12 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
         COUNT(*) FILTER (WHERE s.days > 0)::int AS listings_observed,
         COUNT(*) FILTER (WHERE s.died_here)::int AS disappeared,
         COUNT(*) FILTER (WHERE s.died_here)::int AS disappeared_confirmed_404,
+        -- Departures settled by the 2026-08-26 re-verification pass. Genuine,
+        -- but re-asked weeks after the fact, so the week they sit in may be
+        -- wrong by up to the age of the backlog. Usable for an overall rate,
+        -- not for week-over-week movement; kept separate so a reader can drop
+        -- them rather than having to trust that distinction was remembered.
+        COUNT(*) FILTER (WHERE s.died_here AND s.reverified)::int AS disappeared_backfilled,
         -- Delete-and-relist is a departure followed by a return. Only visible
         -- where a fingerprint exists, which on bazos.sk is 15% of rows; the
         -- caveat in the UI has to say so rather than imply this is complete.
@@ -182,6 +189,7 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
       listings_observed: number;
       disappeared: number;
       disappeared_confirmed_404: number;
+      disappeared_backfilled: number;
       reappeared_within_30d: number;
     }>;
 
@@ -204,7 +212,8 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
       (r) => sql`(
         ${r.model_id}, ${r.source}, ${t0}, ${t1},
         ${r.exposure_listing_days}::numeric, ${r.listings_observed},
-        ${r.disappeared}, ${r.disappeared_confirmed_404}, ${r.reappeared_within_30d},
+        ${r.disappeared}, ${r.disappeared_confirmed_404}, ${r.disappeared_backfilled},
+        ${r.reappeared_within_30d},
         ${sweptSources.has(r.source)}
       )`,
     );
@@ -213,7 +222,8 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
       INSERT INTO model_flow_weekly (
         model_id, source, window_start, window_end,
         exposure_listing_days, listings_observed,
-        disappeared, disappeared_confirmed_404, reappeared_within_30d, sweep_complete
+        disappeared, disappeared_confirmed_404, disappeared_backfilled,
+        reappeared_within_30d, sweep_complete
       ) VALUES ${sql.join(values, sql`, `)}
       ON CONFLICT (model_id, source, window_start) DO UPDATE SET
         window_end = excluded.window_end,
@@ -221,6 +231,7 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
         listings_observed = excluded.listings_observed,
         disappeared = excluded.disappeared,
         disappeared_confirmed_404 = excluded.disappeared_confirmed_404,
+        disappeared_backfilled = excluded.disappeared_backfilled,
         reappeared_within_30d = excluded.reappeared_within_30d,
         sweep_complete = excluded.sweep_complete,
         computed_at = now()

@@ -58,7 +58,7 @@
     },
     {
       "path": "/api/cron/check-removed",
-      "schedule": "57 * * * *"
+      "schedule": "27,57 * * * *"
     },
     {
       "path": "/api/cron/daily-price-snapshot",

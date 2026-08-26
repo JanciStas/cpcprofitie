@@ -277,6 +277,9 @@ export const modelFlowWeekly = pgTable(
     disappeared: integer('disappeared').notNull(),
     /** The subset we actually saw 404 — measures how right the absence signal is. */
     disappearedConfirmed404: integer('disappeared_confirmed_404').notNull(),
+    /** Settled by the 2026-08-26 re-verification: real, but the WEEK may be
+     *  wrong. Fine for an overall rate, not for week-over-week movement. */
+    disappearedBackfilled: integer('disappeared_backfilled').notNull().default(0),
     reappearedWithin30d: integer('reappeared_within_30d').notNull().default(0),
     priceObsExposureListingDays: numeric('price_obs_exposure_listing_days', {
       precision: 12,
