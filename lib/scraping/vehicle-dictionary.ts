@@ -234,6 +234,8 @@ const REJECTED_CANDIDATES = [
 type Dict = {
   brands: ReadonlySet<string>;
   modelsByBrand: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Model name -> its brand, only where exactly one brand claims the name. */
+  brandByUniqueModel: ReadonlyMap<string, string>;
 };
 
 let cached: Dict | null = null;
@@ -258,7 +260,28 @@ function dict(): Dict {
     if (!modelsByBrand.has(brand)) modelsByBrand.set(brand, new Set());
     for (const model of models) modelsByBrand.get(brand)!.add(model);
   }
-  cached = { brands, modelsByBrand };
+  // A model name that exactly one brand uses identifies that brand on its own.
+  // Derived rather than listed, so it stays correct as the dictionary grows.
+  const claims = new Map<string, Set<string>>();
+  for (const [brand, models] of modelsByBrand) {
+    for (const model of models) {
+      if (!claims.has(model)) claims.set(model, new Set());
+      claims.get(model)!.add(brand);
+    }
+  }
+  const brandByUniqueModel = new Map<string, string>();
+  for (const [model, owners] of claims) {
+    // Shared names carry no brand: `ateca` is Seat and Cupra, `rexton` is
+    // SsangYong and KGM, `gls` is Mercedes and Maybach.
+    if (owners.size !== 1) continue;
+    // Short names are too easy to hit by accident — a bare `3` or `hs` says
+    // nothing. And a name that is also a brand must never imply a different
+    // one: `mini` is a model of Austin and a marque in its own right.
+    if (model.length < 4 || brands.has(model)) continue;
+    brandByUniqueModel.set(model, [...owners][0]!);
+  }
+
+  cached = { brands, modelsByBrand, brandByUniqueModel };
   return cached;
 }
 
@@ -297,3 +320,22 @@ export function canonicalModel(brand: string, model: string): string {
 
 /** Exported so a test can pin the measured noise out of the dictionary. */
 export const REJECTED_MODEL_CANDIDATES: readonly string[] = REJECTED_CANDIDATES;
+
+/**
+ * The brand implied by a model name, when only one brand uses it.
+ *
+ * bazoš sellers often skip the marque entirely — "Octavia 1.9 TDI", "Golf",
+ * "Passat" — leaving 2 125 cars with a year, a mileage and a price and no
+ * model at all.
+ *
+ * This is only ever a LAST resort, after the whole title has been searched for
+ * a real brand token. That ordering is what makes it safe: the mismatches the
+ * measurement turned up were all parts ads listing several cars ("Golf Bmv x1
+ * audi q5 seat leon"), and every one of them contains a brand, so the fallback
+ * never sees them. Measured on listings that carry a year, a mileage and a
+ * price: 33 agreed with the known brand, none disagreed.
+ */
+export function brandFromUniqueModel(model: string | null | undefined): string | null {
+  if (!model) return null;
+  return dict().brandByUniqueModel.get(model) ?? null;
+}

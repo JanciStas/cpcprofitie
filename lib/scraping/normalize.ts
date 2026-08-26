@@ -1,6 +1,7 @@
 import type { RawFuel, RawTransmission } from './types';
 import {
   bmwSeriesFromEngineCode,
+  brandFromUniqueModel,
   canonicalModel,
   canonicalToken,
   isBodyDescriptor,
@@ -167,6 +168,21 @@ export function parseMakeModel(title: string | null | undefined): {
     // Brand recognised but the model isn't in the dictionary — attach the
     // listing to the brand and leave the model open rather than inventing one.
     return { makeSlug: brand, modelSlug: null };
+  }
+
+  // Last resort: no brand anywhere in the title, but the first word is a model
+  // name only one brand uses. bazoš sellers routinely skip the marque —
+  // "Octavia 1.9 TDI", "Golf", "Passat" — and 2 125 cars with a year, a
+  // mileage and a price had no model because of it.
+  //
+  // Running it only after the whole title failed to yield a brand is what
+  // keeps it honest: the mismatches the measurement found were parts ads
+  // naming several cars ("Golf Bmv x1 audi q5 seat leon"), and every one of
+  // those contains a brand, so this never sees them.
+  const first = tokens[0] ?? null;
+  const impliedBrand = brandFromUniqueModel(first);
+  if (impliedBrand && first) {
+    return { makeSlug: impliedBrand, modelSlug: first };
   }
 
   return { makeSlug: null, modelSlug: null };

@@ -184,3 +184,38 @@ describe('BMW engine designations', () => {
     expect(parseMakeModel('Fiat 320 nieco')).toEqual({ makeSlug: 'fiat', modelSlug: null });
   });
 });
+
+describe('titles that skip the marque', () => {
+  it('takes the brand from a model only one brand uses', () => {
+    // bazoš sellers routinely leave the marque out. 2 125 cars had a year, a
+    // mileage and a price and no model because of it.
+    expect(parseMakeModel('Octavia 1.9 TDI 4x4')).toEqual({
+      makeSlug: 'skoda',
+      modelSlug: 'octavia',
+    });
+    expect(parseMakeModel('Passat 2.0 TDI DSG')).toEqual({
+      makeSlug: 'volkswagen',
+      modelSlug: 'passat',
+    });
+  });
+
+  it('never overrides a brand that is actually in the title', () => {
+    // The measured mismatches were all parts ads naming several cars. Every
+    // one of them contains a brand, so the fallback must never reach them.
+    expect(parseMakeModel('Golf Bmv x1 audi q5 seat leon')).toEqual({
+      makeSlug: 'audi',
+      modelSlug: 'q5',
+    });
+  });
+
+  it('refuses a model name two brands share', () => {
+    // Ateca is Seat and Cupra; Rexton is SsangYong and KGM. A shared name
+    // carries no brand.
+    expect(parseMakeModel('Ateca 1.5 TSI')).toEqual({ makeSlug: null, modelSlug: null });
+    expect(parseMakeModel('Rexton 2.2')).toEqual({ makeSlug: null, modelSlug: null });
+  });
+
+  it('refuses a name too short to mean anything', () => {
+    expect(parseMakeModel('320 nieco')).toEqual({ makeSlug: null, modelSlug: null });
+  });
+});
