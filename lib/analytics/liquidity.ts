@@ -100,13 +100,21 @@ export async function computeWeeklyFlow(opts: { asOf?: Date } = {}): Promise<Flo
         SELECT
           l.id, l.model_id, l.source, l.fingerprint, l.first_seen_at,
           l.first_seen_alive_at AS entered_at,
-          -- A departure only when we have evidence of one. A bare '[GONE]'
-          -- predates the reason being recorded and may be a 403.
+          -- Exactly one tombstone is disqualifying: the bare '[GONE]' written
+          -- before the reason was recorded, which may have been a 403. Anything
+          -- else -- no detail row, a reasoned tombstone, or an ordinary
+          -- description on a listing the HEAD sweep later found dead -- is a
+          -- removal we have evidence for.
+          --
+          -- The first version of this asked the question the other way round
+          -- and only accepted a NULL or reasoned description. Enrichment
+          -- coverage is near total, so almost every genuinely dead listing
+          -- carries a real description and was silently dropped: the first
+          -- production run recorded 4 events against 679 411 listing-days.
           CASE
             WHEN l.removed_at IS NULL THEN NULL
-            WHEN d.description IS NULL THEN l.removed_at          -- HEAD sweep
-            WHEN d.description LIKE '[GONE:%' THEN l.removed_at   -- reason known
-            ELSE NULL
+            WHEN d.description = '[GONE]' THEN NULL
+            ELSE l.removed_at
           END AS confirmed_gone_at
         FROM listings l
         LEFT JOIN listing_details d ON d.listing_id = l.id
