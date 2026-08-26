@@ -233,6 +233,13 @@ export const marketSnapshots = pgTable(
     p25PriceEur: numeric('p25_price_eur', { precision: 10, scale: 2 }),
     p75PriceEur: numeric('p75_price_eur', { precision: 10, scale: 2 }),
     countActive: integer('count_active').notNull().default(0),
+    // DEAD, kept only so the history is not thrown away. countSold is a
+    // numerator with no denominator: it counts departures without recording how
+    // many listings were being watched or for how long, so it cannot be
+    // compared between models or between weeks. 93% of the sales it was built
+    // on were fabricated, and the columns it fed were removed from the UI on
+    // 2026-08-20. Nothing writes these any more -- flow lives in
+    // model_flow_weekly, with exposure beside every count.
     countSold: integer('count_sold').notNull().default(0),
     daysToSellAvg: numeric('days_to_sell_avg', { precision: 6, scale: 2 }),
     computedAt: timestamp('computed_at', { withTimezone: true }).notNull().defaultNow(),
@@ -242,6 +249,51 @@ export const marketSnapshots = pgTable(
       columns: [t.modelId, t.region, t.yearBucket, t.mileageBucket, t.period, t.capturedOn],
     }),
     index('market_snapshots_model_period_idx').on(t.modelId, t.period, t.capturedOn),
+  ],
+);
+
+// Weekly flow per model: observed listing-time and how much of it ended with
+// the listing leaving the market. See 0016_model_flow_weekly.sql for why this
+// is a separate table rather than columns on market_snapshots -- in short, that
+// one measures a stock at an instant and this measures a flow over an interval,
+// and its population (price AND year AND mileage) is not this one's.
+//
+// Counts and exposure are stored; the RATE is never stored. The global rate and
+// the shrinkage constant both move as data accumulates, so a stored rate would
+// freeze a week-one prior for ever, and weeks could not be pooled by addition.
+export const modelFlowWeekly = pgTable(
+  'model_flow_weekly',
+  {
+    modelId: integer('model_id')
+      .notNull()
+      .references(() => vehicleModels.id, { onDelete: 'cascade' }),
+    /** A stratum, never 'all' — private ads turn over on a different clock. */
+    source: varchar('source', { length: 32 }).notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    windowEnd: timestamp('window_end', { withTimezone: true }).notNull(),
+    /** Listing-days at risk, closing at last confirmed contact. */
+    exposureListingDays: numeric('exposure_listing_days', { precision: 12, scale: 2 }).notNull(),
+    listingsObserved: integer('listings_observed').notNull(),
+    disappeared: integer('disappeared').notNull(),
+    /** The subset we actually saw 404 — measures how right the absence signal is. */
+    disappearedConfirmed404: integer('disappeared_confirmed_404').notNull(),
+    reappearedWithin30d: integer('reappeared_within_30d').notNull().default(0),
+    priceObsExposureListingDays: numeric('price_obs_exposure_listing_days', {
+      precision: 12,
+      scale: 2,
+    })
+      .notNull()
+      .default('0'),
+    priceCuts: integer('price_cuts').notNull().default(0),
+    priceRaises: integer('price_raises').notNull().default(0),
+    cutDepthPctMedian: numeric('cut_depth_pct_median', { precision: 5, scale: 2 }),
+    /** False when the catalogue sweep for this window did not come round clean. */
+    sweepComplete: boolean('sweep_complete').notNull().default(false),
+    computedAt: timestamp('computed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.modelId, t.source, t.windowStart] }),
+    index('model_flow_weekly_window_idx').on(t.windowStart, t.modelId),
   ],
 );
 

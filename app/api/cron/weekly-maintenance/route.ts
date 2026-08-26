@@ -4,6 +4,7 @@ import { isConnectionError, noteDbUnavailable } from '@/lib/db/errors';
 import { backfillFingerprints, clusterReposts } from '@/lib/dedup/cluster';
 import { computeFlipOpportunities } from '@/lib/analytics/flip-opportunities';
 import { computeWeeklySnapshots } from '@/lib/analytics/snapshots';
+import { computeWeeklyFlow, computeWeeklyPriceFlow } from '@/lib/analytics/liquidity';
 
 // Weekly maintenance cron — runs Sunday 02:00 UTC. Five sequential steps,
 // each wrapped in try/catch + Sentry so one failing step doesn't abort the
@@ -82,6 +83,26 @@ export async function GET(request: Request) {
     errors.push(`computeWeeklySnapshots: ${msg}`);
     Sentry.captureException(e, {
       tags: { component: 'weekly-maintenance', step: 'computeWeeklySnapshots' },
+    });
+  }
+
+  try {
+    // Flow before flips so the week's exposure is on disk even if the flip pass
+    // fails. Two statements: the price half only updates rows the flow half
+    // created, because price movement with no exposure beside it has no
+    // denominator and is not publishable on its own.
+    const stats = await computeWeeklyFlow();
+    const pricedRows = await computeWeeklyPriceFlow();
+    summary.computeWeeklyFlow = { ...stats, pricedRows };
+  } catch (e) {
+    if (isConnectionError(e)) {
+      noteDbUnavailable(e, { step: 'weekly-maintenance.computeWeeklyFlow' });
+      return NextResponse.json({ error: 'db_unavailable', summary, errors }, { status: 503 });
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    errors.push(`computeWeeklyFlow: ${msg}`);
+    Sentry.captureException(e, {
+      tags: { component: 'weekly-maintenance', step: 'computeWeeklyFlow' },
     });
   }
 

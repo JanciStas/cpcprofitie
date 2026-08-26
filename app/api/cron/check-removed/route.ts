@@ -43,9 +43,16 @@ import { USER_AGENT } from '@/lib/scraping';
 // closer to something heavier. Colliding streams on one host is not
 // theoretical here — it cost four days of autobazar.sk in August.
 //
-// Throughput at this schedule: ~24 runs x ~200 checks per host = ~4 800 per
-// host per day, so all three sources come round in roughly a week. The metric
-// downstream must not claim finer resolution than that.
+// Throughput at this schedule, MEASURED on the first two production runs
+// rather than derived from the delay: 416 and 333 checks per run across the
+// three hosts, both ending on their own deadline. Call it ~370/run, ~8 900/day,
+// ~3 000 per source per day. Against 46k bazos / 53k eu / 24k sk that is a full
+// sweep every ~13 days, not the week the arithmetic suggests -- HEAD latency
+// eats into the courtesy delay.
+//
+// The metric downstream must not claim finer resolution than that number. If
+// this comment and reality drift apart, reality wins: read `checked` out of the
+// run response before quoting a sweep length anywhere.
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
