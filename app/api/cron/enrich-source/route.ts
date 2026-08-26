@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { DbUnavailableError, isConnectionError, noteDbUnavailable } from '@/lib/db/errors';
 import { getSource } from '@/lib/scraping';
 import { loadUnenrichedBatch, type EnrichSelectMode } from '@/lib/scraping/enrich-batch-loader';
-import { persistDetails, runEnrichment } from '@/lib/scraping';
+import { MassGoneError, persistDetails, runEnrichment } from '@/lib/scraping';
 import { ALL_SOURCES, type Source } from '@/lib/scraping';
 import { pickSource } from '@/lib/scraping/rotation';
 
@@ -190,6 +190,20 @@ export async function POST(request: Request) {
       // outage stops the loop — a slow detail page must not.
       if (e instanceof DbUnavailableError) {
         return NextResponse.json({ error: 'db_unavailable', batches }, { status: 503 });
+      }
+      // A batch that came back mostly gone means the source changed or is
+      // blocking us. Carrying on would keep hammering it and keep asking the
+      // same question, so stop this source for this invocation and report the
+      // run as failed — silently continuing is how the earlier version turned
+      // one bad afternoon into 3 676 listings marked removed.
+      if (e instanceof MassGoneError) {
+        Sentry.captureException(e, {
+          tags: { component: 'enrich-source', step: 'massGone', source: sourceId },
+        });
+        return NextResponse.json(
+          { error: 'mass_gone', message: e.message, source: sourceId, batches, totalDetails },
+          { status: 502 },
+        );
       }
       totalErrors++;
       Sentry.captureException(e, {

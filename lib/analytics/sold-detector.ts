@@ -71,6 +71,16 @@ export async function detectSoldListings(
           -- removed_at was set, and this function read that as a sale — average
           -- lifetime 0.21 days. They were never on the market as far as we saw.
           AND first_seen_alive_at IS NOT NULL
+          -- ...and it cannot have sold BEFORE we saw it alive. removed_at and
+          -- first_seen_alive_at are stamped by different paths (enrichment's
+          -- gone branch, the HEAD sweep, the catalogue upsert), so they can
+          -- land out of order: a row tombstoned while first_seen_alive_at was
+          -- still NULL, then re-sighted and stamped afterwards, ends up with a
+          -- negative lifetime. 18 of 940 recorded sales were like this, and on
+          -- one subset the median came out at -3.7 days. A duration that runs
+          -- backwards is not a noisy measurement, it is a contradiction, and
+          -- it must not reach an aggregate.
+          AND removed_at >= first_seen_alive_at
           AND id > ${cursor.toString()}::bigint
         ORDER BY id ASC
         LIMIT ${batchSize}
@@ -115,6 +125,7 @@ export async function detectSoldListings(
           AND l.removed_at IS NOT NULL
           AND l.fingerprint IS NOT NULL
           AND l.first_seen_alive_at IS NOT NULL
+          AND l.removed_at >= l.first_seen_alive_at
           AND NOT EXISTS (
             SELECT 1
             FROM ${listings} r

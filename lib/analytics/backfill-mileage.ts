@@ -52,7 +52,7 @@ export async function backfillMileage(
       JOIN listing_details d ON d.listing_id = l.id
       WHERE l.mileage_km IS NULL
         AND d.description IS NOT NULL
-        AND d.description <> '[GONE]'
+        AND d.description NOT LIKE '[GONE%'
         ${opts.afterId != null ? sql`AND l.id > ${opts.afterId.toString()}::bigint` : sql``}
       ORDER BY l.id
       LIMIT ${limit}
@@ -118,7 +118,7 @@ export async function backfillMileage(
       JOIN listing_details d ON d.listing_id = l.id
       WHERE l.mileage_km IS NULL
         AND d.description IS NOT NULL
-        AND d.description <> '[GONE]'
+        AND d.description NOT LIKE '[GONE%'
     `)) as unknown as Array<{ n: number }>;
     stats.remaining = remainingRows[0]?.n ?? 0;
 

@@ -626,11 +626,16 @@ export async function persistDetails(details: NormalizedDetail[]): Promise<Detai
       continue;
     }
 
-    // Gone (404/410/403/redirect): mark the listing removed so it exits the
-    // active enrichment / null-price pools, and DON'T overwrite an existing
-    // enriched detail row with the empty tombstone fields (onConflictDoNothing
+    // Gone (404/410/redirect): mark the listing removed so it exits the active
+    // enrichment / null-price pools, and DON'T overwrite an existing enriched
+    // detail row with the empty tombstone fields (onConflictDoNothing
     // preserves a previously-scraped seller/VIN/equipment). A fresh gone row
     // still gets a tombstone detail so unenriched-mode notExists stops picking.
+    //
+    // 403 is deliberately NOT in that list any more; see enrich.ts. The
+    // tombstone carries the reason enrich determined, because '[GONE]' on its
+    // own could not be audited: when 3 676 bazos rows went gone in one day
+    // there was no way to ask which were real. Readers match '[GONE%'.
     if (d.gone) {
       try {
         await db.execute(sql`
@@ -638,7 +643,11 @@ export async function persistDetails(details: NormalizedDetail[]): Promise<Detai
         `);
         await db
           .insert(listingDetails)
-          .values({ listingId, description: '[GONE]', equipment: [] })
+          .values({
+            listingId,
+            description: d.description?.startsWith('[GONE') ? d.description : '[GONE]',
+            equipment: [],
+          })
           .onConflictDoNothing({ target: listingDetails.listingId });
         detailsUpserted++;
       } catch (e) {

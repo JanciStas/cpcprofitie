@@ -15,7 +15,13 @@ export {
   slugify,
 } from './normalize';
 export { upsertListings, openScrapeRun, closeScrapeRun, persistDetails } from './persist';
-export { runEnrichment, __resetEnrichRobotsCache } from './enrich';
+export {
+  runEnrichment,
+  __resetEnrichRobotsCache,
+  MassGoneError,
+  MAX_GONE_SHARE,
+  MIN_GONE_FOR_GUARD,
+} from './enrich';
 export type { ScraperSource, RunScrapeOptions } from './scrape';
 export type { EnrichOptions, EnrichResult } from './enrich';
 export type {
