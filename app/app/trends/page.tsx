@@ -7,7 +7,7 @@ export const metadata = { title: 'Trendy modelov · CPCProfit' };
 // 'movement' ranked models by sales we did not observe, so it ordered by a
 // column that is now almost entirely zero. A sort with nothing to sort by is
 // not degraded, it is broken — better absent until the sales are real.
-const VALID_SORTS: TrendsSort[] = ['demand', 'price-drop'];
+const VALID_SORTS: TrendsSort[] = ['demand', 'price-drop', 'discounting'];
 
 function parseSort(v: string | undefined): TrendsSort {
   if (v && (VALID_SORTS as string[]).includes(v)) return v as TrendsSort;
@@ -17,6 +17,9 @@ function parseSort(v: string | undefined): TrendsSort {
 const SORT_LABELS: Record<TrendsSort, string> = {
   demand: 'Podľa dopytu',
   'price-drop': 'Najväčší pokles ceny',
+  // Ranks on the RATE of cutting, not the count: the biggest model would
+  // otherwise top the list purely for being biggest.
+  discounting: 'Najviac zlacňujú',
 };
 
 export default async function TrendsPage({

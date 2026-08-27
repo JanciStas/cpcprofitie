@@ -8,6 +8,9 @@ import {
   globalRate,
   isPublishable,
   posteriorRate,
+  priceCutRate,
+  MIN_PRICE_CUTS,
+  MIN_PRICE_EXPOSURE_WEEKS,
   quadrant,
 } from '../liquidity-estimator';
 
@@ -172,6 +175,35 @@ describe('global rate', () => {
 
   it('is zero when nothing was observed', () => {
     expect(globalRate([])).toBe(0);
+  });
+});
+
+describe('price-cut rate', () => {
+  it('divides by observed price time, not by cars', () => {
+    // Two models with the same number of cuts but one watched twice as long
+    // must not read the same. Counting cars instead would say they do.
+    const short = priceCutRate(20, 100)!;
+    const long = priceCutRate(20, 200)!;
+    expect(short).toBeCloseTo(0.2, 6);
+    expect(long).toBeCloseTo(0.1, 6);
+    expect(short).toBeGreaterThan(long);
+  });
+
+  it('says nothing when there are too few cuts', () => {
+    // Three observed cuts is not "the model that discounts most".
+    expect(priceCutRate(MIN_PRICE_CUTS - 1, 10_000)).toBeNull();
+  });
+
+  it('says nothing when the price series is too thin', () => {
+    expect(priceCutRate(500, MIN_PRICE_EXPOSURE_WEEKS - 1)).toBeNull();
+  });
+
+  it('answers once both gates are cleared', () => {
+    expect(priceCutRate(MIN_PRICE_CUTS, MIN_PRICE_EXPOSURE_WEEKS)).toBeCloseTo(0.1, 6);
+  });
+
+  it('never divides by zero', () => {
+    expect(priceCutRate(10, 0)).toBeNull();
   });
 });
 

@@ -68,6 +68,9 @@ describe('WeeklyDigestEmail render', () => {
     medianPriceEur: 13_500,
     medianLastWeekEur: 14_000,
     daysToSellAvg: 21,
+    priceCutRate: null,
+    cutDepthPct: null,
+    priceRaises: 0,
   };
 
   it('renders trends with WoW arrows and links', async () => {

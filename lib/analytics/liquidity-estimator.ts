@@ -227,6 +227,35 @@ export function isPublishable(est: Pick<LiquidityEstimate, 'events' | 'exposureW
   return est.exposureWeeks >= MIN_EXPOSURE_WEEKS && est.events >= MIN_EVENTS;
 }
 
+/**
+ * Publish gates for the price-cut side.
+ *
+ * Same shape and same reasoning as the departure gates: below either of these
+ * the model renders as NOTHING, not a dash. A dash still promises the metric
+ * exists and is merely sparse, which is the mistake trends-table.tsx documents
+ * from when the sold columns were pulled.
+ */
+export const MIN_PRICE_CUTS = 5;
+export const MIN_PRICE_EXPOSURE_WEEKS = 50;
+
+/**
+ * Share of listings that cut their price in a week, or null when there is not
+ * enough evidence to say.
+ *
+ * The denominator is listing-weeks of PRICE-OBSERVED time — the sum of gaps
+ * between two prices we actually read — not a count of cars. A listing whose
+ * price we read once contributes nothing, because we cannot know whether it
+ * moved; scoring it "did not cut" would be the same error as scoring an
+ * unchecked listing "still for sale". daily-price-snapshot already refuses to
+ * fabricate flat lines by only recording recently-checked rows; this is the
+ * read-side half of that rule.
+ */
+export function priceCutRate(cuts: number, exposureWeeks: number): number | null {
+  if (cuts < MIN_PRICE_CUTS || exposureWeeks < MIN_PRICE_EXPOSURE_WEEKS) return null;
+  if (exposureWeeks <= 0) return null;
+  return cuts / exposureWeeks;
+}
+
 export type Quadrant = 'strong-demand' | 'moves-on-price' | 'holding' | 'weak-demand';
 
 /**

@@ -4,6 +4,11 @@ import * as Sentry from '@sentry/nextjs';
 import { sql } from 'drizzle-orm';
 import { getDb } from '../index';
 import { marketReferenceRaw } from '@/lib/analytics/quality';
+import {
+  MIN_PRICE_CUTS,
+  MIN_PRICE_EXPOSURE_WEEKS,
+  priceCutRate,
+} from '@/lib/analytics/liquidity-estimator';
 
 export type TrendRow = {
   modelId: number;
@@ -16,6 +21,12 @@ export type TrendRow = {
   medianPriceEur: number | null;
   medianLastWeekEur: number | null;
   daysToSellAvg: number | null;
+  /** Share of listings cutting price per week, or null below the publish gates. */
+  priceCutRate: number | null;
+  /** Median depth of a cut, % of the previous price. */
+  cutDepthPct: number | null;
+  /** Raises are a demand signal too — bazos runs 6:1 cuts, autobazar.sk 1.6:1. */
+  priceRaises: number;
 };
 
 export type DealRow = {
@@ -49,7 +60,7 @@ export const MIN_MODELS_FOR_MEDIAN = 5;
 // 'movement' (rank by sales) is gone: 93% of recorded sales were listings
 // already dead the first time we fetched them, so it ordered by a column that
 // is now almost entirely zero.
-export type TrendsSort = 'demand' | 'price-drop';
+export type TrendsSort = 'demand' | 'price-drop' | 'discounting';
 
 /**
  * Top N models by demand metric. Joins this-week and last-week snapshots so
@@ -154,6 +165,22 @@ async function getTrendingModelsUnsafe(opts: {
       -- than a number nobody could defend.
       HAVING COUNT(*) >= ${MIN_MODELS_FOR_MEDIAN}
     )
+    , price_flow AS (
+      -- Pooled across sources and across every week we have. Counts and
+      -- exposure both add up, which is exactly why the table stores them
+      -- rather than a rate: a stored rate could not be pooled at all.
+      SELECT model_id,
+        SUM(price_cuts)::int AS price_cuts,
+        SUM(price_raises)::int AS price_raises,
+        SUM(price_obs_exposure_listing_days) / 7.0 AS price_exposure_weeks,
+        -- A median of medians, weighted by nothing, is not a median. With one
+        -- row per source this is at worst an average of three numbers that sat
+        -- within half a point of each other on the first real week; if the
+        -- sources ever diverge this has to move into the flow computation.
+        AVG(cut_depth_pct_median) AS cut_depth_pct
+      FROM model_flow_weekly
+      GROUP BY model_id
+    )
     SELECT
       vm.id AS model_id,
       vmk.slug AS make_slug,
@@ -164,17 +191,30 @@ async function getTrendingModelsUnsafe(opts: {
       coalesce(tw.count_sold, lf.count_sold, 0)::int AS count_sold_this_week,
       coalesce(tw.median_price, lf.median_price) AS median_price,
       lw.median_price AS median_last_week,
-      coalesce(tw.days_to_sell, lf.days_to_sell) AS days_to_sell_avg
+      coalesce(tw.days_to_sell, lf.days_to_sell) AS days_to_sell_avg,
+      pf.price_cuts,
+      pf.price_raises,
+      pf.price_exposure_weeks,
+      pf.cut_depth_pct
     FROM vehicle_models vm
     JOIN vehicle_makes vmk ON vmk.id = vm.make_id
     LEFT JOIN this_week tw ON tw.model_id = vm.id
     LEFT JOIN last_week lw ON lw.model_id = vm.id
     LEFT JOIN live_fallback lf ON lf.model_id = vm.id
+    LEFT JOIN price_flow pf ON pf.model_id = vm.id
     WHERE coalesce(tw.count_active, lf.count_active, 0) > 0
     ORDER BY
       CASE WHEN ${sort} = 'demand' THEN coalesce(tw.count_active, lf.count_active, 0) END DESC NULLS LAST,
       CASE WHEN ${sort} = 'price-drop'
         THEN (lw.median_price - coalesce(tw.median_price, lf.median_price))
+      END DESC NULLS LAST,
+      -- Ordered on the rate, never on the raw count: the biggest model would
+      -- otherwise top a "discounts most" list purely for being biggest. Rows
+      -- below the gates sort last because the rate is NULL there.
+      CASE WHEN ${sort} = 'discounting'
+             AND pf.price_cuts >= ${MIN_PRICE_CUTS}
+             AND pf.price_exposure_weeks >= ${MIN_PRICE_EXPOSURE_WEEKS}
+        THEN pf.price_cuts / pf.price_exposure_weeks
       END DESC NULLS LAST
     LIMIT ${limit}
   `)) as unknown as Array<{
@@ -188,6 +228,10 @@ async function getTrendingModelsUnsafe(opts: {
     median_price: number | null;
     median_last_week: number | null;
     days_to_sell_avg: number | null;
+    price_cuts: number | null;
+    price_raises: number | null;
+    price_exposure_weeks: string | number | null;
+    cut_depth_pct: string | number | null;
   }>;
 
   // See WOW_COMPARABLE_FROM: a comparison that reaches back past a step change
@@ -215,6 +259,11 @@ async function getTrendingModelsUnsafe(opts: {
     medianLastWeekEur:
       comparable && r.median_last_week != null ? Math.round(r.median_last_week) : null,
     daysToSellAvg: r.days_to_sell_avg,
+    // The gate lives in priceCutRate, which returns null rather than a number
+    // the evidence does not support. The table renders nothing for null.
+    priceCutRate: priceCutRate(r.price_cuts ?? 0, Number(r.price_exposure_weeks ?? 0)),
+    cutDepthPct: r.cut_depth_pct != null ? Number(r.cut_depth_pct) : null,
+    priceRaises: r.price_raises ?? 0,
   }));
 }
 
