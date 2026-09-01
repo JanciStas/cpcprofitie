@@ -26,6 +26,54 @@ const LISTING: NormalizedListing = {
   rawPayload: {},
 };
 
+describe('VIN', () => {
+  // autobazar.sk publishes the VIN plainly, and we recorded it for 0% of 24 528
+  // listings. The cause was reading it out of the flattened page text with a
+  // case-insensitive /VIN/ that matched an unrelated token earlier in the
+  // document -- exec returns the FIRST match, so the real value was never
+  // reached. VIN is the strongest identity key we have; it is what finds the
+  // 3 294 cars currently listed on more than one portal at once.
+  it('reads the VIN out of the parameters block', () => {
+    const d = parseDetailPage(FIXTURE, LISTING);
+    expect(d.vin).toBe('WAUZZZ8V9EA151208');
+  });
+
+  it('is not fooled by a token that merely contains the letters vin', () => {
+    // The live page carries a nonce like `VinpswXngc72xXp0tU3` before the real
+    // parameters block. Text scanning captured 16 characters of that, failed
+    // the 17-character check, and returned null.
+    const poisoned = FIXTURE.replace('<body', '<body data-nonce="VinpswXngc72xXp0tU3"');
+    const d = parseDetailPage(poisoned, LISTING);
+    expect(d.vin).toBe('WAUZZZ8V9EA151208');
+  });
+
+  it('returns null rather than a guess when the page has no VIN', () => {
+    const stripped = FIXTURE.replace(/WAUZZZ8V9EA151208/g, '');
+    expect(parseDetailPage(stripped, LISTING).vin).toBeNull();
+  });
+});
+
+describe('the other labelled fields', () => {
+  // These still read from the flattened page text, which is the same mechanism
+  // that silently lost the VIN. They work today; this pins them so that if the
+  // page ever grows a decoy the way it did for VIN, a test says so instead of a
+  // column quietly going empty.
+  it('reads every spec the parameters block carries', () => {
+    const d = parseDetailPage(FIXTURE, LISTING);
+    expect(d.bodyType).toBe('Hatchback');
+    expect(d.powerKw).toBe(110);
+    expect(d.engineCcm).toBe(1968);
+  });
+
+  it('leaves colour null, because the source does not publish it', () => {
+    // Checked against the page: there is no "Farba" anywhere on it, in the
+    // parameters block or out of it. Null here is the honest answer, not a
+    // parser miss -- worth pinning so nobody "fixes" it into a guess.
+    const d = parseDetailPage(FIXTURE, LISTING);
+    expect(d.colorExterior).toBeNull();
+  });
+});
+
 describe('autobazar.sk parseDetailPage', () => {
   it('extracts the sale price into listingOverrides (backfills null-price rows)', () => {
     const d = parseDetailPage(FIXTURE, LISTING);

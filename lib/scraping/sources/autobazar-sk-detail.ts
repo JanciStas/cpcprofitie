@@ -3,6 +3,7 @@
 // listing URL directly.
 
 import * as cheerio from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
 import { PRICE_MAX, PRICE_MIN } from '@/lib/analytics/quality';
 import {
   extractEurFromText,
@@ -49,8 +50,18 @@ export function parseDetailPage(html: string, listing: NormalizedListing): Norma
   const colorInterior = extractAfterLabel(fullText, 'Interiér');
   const powerKw = parseIntFromText(extractAfterLabel(fullText, 'Výkon'));
   const engineCcm = parseIntFromText(extractAfterLabel(fullText, 'Objem'));
-  const vinRaw = extractAfterLabel(fullText, 'VIN');
-  const vin = isPlausibleVin(vinRaw) ? vinRaw : null;
+  // Read from the DOM, not from the flattened text like the fields above.
+  //
+  // extractAfterLabel builds a case-insensitive /VIN\s*:?\s*(...)/ and runs it
+  // over the whole page, and exec returns the FIRST match. Anything earlier
+  // that merely contains the letters "vin" wins, the capture fails the
+  // 17-character check, and the function returns null -- which it did for all
+  // 24 528 autobazar.sk listings, while the page carried the VIN in plain sight.
+  //
+  // The label/value markup is stable and unambiguous, so match on it directly.
+  // Every candidate is checked, not just the first, so a stray label elsewhere
+  // costs nothing.
+  const vin = extractLabelledValue($, 'VIN', isPlausibleVin);
 
   // Seller block: dealer pages link to `<slug>.autobazar.sk`. Private sellers
   // show "Súkromný predajca" or similar text.
@@ -140,6 +151,32 @@ export function parseDetailPage(html: string, listing: NormalizedListing): Norma
     equipment: equipment.slice(0, 200),
     listingOverrides: Object.keys(listingOverrides).length > 0 ? listingOverrides : undefined,
   };
+}
+
+/**
+ * Value of a `parameters__label` / `parameters__value` pair, validated.
+ *
+ * Returns the first candidate that satisfies `accept`, so a page carrying the
+ * label more than once (or carrying a decoy) still yields the real value.
+ */
+function extractLabelledValue(
+  $: CheerioAPI,
+  label: string,
+  accept: (v: string | null) => boolean,
+): string | null {
+  let found: string | null = null;
+  $('.parameters__label').each((_, el) => {
+    if (found) return;
+    const text = $(el).text().trim().replace(/:$/, '');
+    if (text.toUpperCase() !== label.toUpperCase()) return;
+    // The value sits in the neighbouring column, not inside the label element.
+    const value =
+      $(el).closest('div').next().find('.parameters__value').first().text().trim() ||
+      $(el).parent().parent().find('.parameters__value').first().text().trim();
+    const normalised = value.toUpperCase();
+    if (accept(normalised)) found = normalised;
+  });
+  return found;
 }
 
 function extractAfterLabel(text: string, label: string): string | null {

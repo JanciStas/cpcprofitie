@@ -84,7 +84,8 @@ export type ScrapeResult = {
   lastPage: number;
   /** Why the walk ended: 'range' (did what was asked), 'deadline' (ran out of
    *  time), or 'endOfCatalog' (source has no more pages). */
-  stoppedReason: 'range' | 'deadline' | 'endOfCatalog';
+  /** 'blocked' = the host refused us repeatedly and the walk stood down. */
+  stoppedReason: 'range' | 'deadline' | 'endOfCatalog' | 'blocked';
 };
 
 export type SellerType = 'private' | 'dealer';

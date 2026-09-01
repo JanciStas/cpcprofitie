@@ -108,8 +108,18 @@ export async function runScrape(
   const firstPage = Math.max(1, opts.startPage ?? 1);
   const lastRequestedPage = firstPage + pages - 1;
   const streakLimit = Math.max(1, opts.endOfCatalogStreak ?? 3);
+  // Consecutive 403/429 from the host before the walk stands down. Deliberately
+  // short: a source that has refused three pages in a row is not about to
+  // accept the fourth, and continuing is how the August block was earned.
+  const BLOCKED_STREAK_LIMIT = 3;
   const outcomes: PageOutcome[] = [];
   let emptyStreak = 0;
+  let blockedStreak = 0;
+  // The last page we actually got an answer about. On a block the walk rewinds
+  // to here, so refused pages are retried next run instead of being skipped:
+  // advanceCursor only holds position when the WHOLE run failed, and a run that
+  // read 100 pages and was then refused would otherwise leave a hole.
+  let lastGoodPage = firstPage - 1;
   let lastPage = firstPage - 1;
   let stoppedReason: ScrapeResult['stoppedReason'] = 'range';
 
@@ -137,11 +147,35 @@ export async function runScrape(
       if (res.status === 404 || res.status === 410) {
         outcomes.push({ page, kind: 'notFound', listings: 0 });
         emptyStreak++;
+        lastGoodPage = page;
+      } else if (res.status === 403 || res.status === 429) {
+        // Being refused is different from a page erroring, and it is the one
+        // failure that gets worse the longer we keep going. In August a full
+        // catalogue walk paired with detail enrichment on the same host ended
+        // with autobazar.sk refusing our egress IP for four days. Now that the
+        // walk runs twice as often, it needs its own brake: back off after a
+        // short run of refusals rather than working through the whole slice.
+        //
+        // The cursor is not advanced past a refused page (nothing is parsed),
+        // so the walk simply resumes here next run.
+        outcomes.push({ page, kind: 'error', listings: 0, message: `HTTP ${res.status}` });
+        errors.push(`page ${page}: HTTP ${res.status}`);
+        blockedStreak++;
+        emptyStreak = 0;
+        if (blockedStreak >= BLOCKED_STREAK_LIMIT) {
+          stoppedReason = 'blocked';
+          lastPage = lastGoodPage;
+          break;
+        }
       } else if (!res.ok) {
         outcomes.push({ page, kind: 'error', listings: 0, message: `HTTP ${res.status}` });
         errors.push(`page ${page}: HTTP ${res.status}`);
         emptyStreak = 0;
+        blockedStreak = 0;
+        lastGoodPage = page;
       } else {
+        blockedStreak = 0;
+        lastGoodPage = page;
         const html = await res.text();
         const pageListings = source.parseListingsPage(html);
         listings.push(...pageListings);

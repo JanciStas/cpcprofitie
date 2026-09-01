@@ -598,12 +598,24 @@ export type PublicDataHealth = {
   totalActive: number;
   repostPct: number;
   sources: PublicSourceHealth[];
+  /**
+   * How old these numbers are, in hours, measured when the page asked for them.
+   *
+   * Computed OUTSIDE the cache on purpose: generatedAt is cached along with
+   * everything else, so an age derived from it inside the cached function would
+   * read as zero for as long as the entry lives. This page served a report six
+   * days old without saying so; the age has to come from the request.
+   */
+  ageHours: number;
 };
 
 const HEALTH_RANK: Record<SourceHealth, number> = { ok: 0, warn: 1, drift: 2 };
 
 /** Pure projection — testable without a DB. */
-export function toPublicDataHealth(r: DataQualityReport): PublicDataHealth {
+/** Everything except `ageHours`, which only the request can know. */
+export type CachedDataHealth = Omit<PublicDataHealth, 'ageHours'>;
+
+export function toPublicDataHealth(r: DataQualityReport): CachedDataHealth {
   const overall: SourceHealth | 'unknown' =
     !r.ok || r.completeness.length === 0
       ? 'unknown'
@@ -636,7 +648,7 @@ export function toPublicDataHealth(r: DataQualityReport): PublicDataHealth {
 // blind state (a transient DB blip retries on the next request, not 10 min
 // later).
 const loadPublicHealth = unstable_cache(
-  async (): Promise<PublicDataHealth> => {
+  async (): Promise<CachedDataHealth> => {
     const report = await getDataQualityReport();
     if (!report.ok) throw new Error('data_quality_report_failed');
     return toPublicDataHealth(report);
@@ -647,7 +659,9 @@ const loadPublicHealth = unstable_cache(
 
 export async function getPublicDataHealth(): Promise<PublicDataHealth> {
   try {
-    return await loadPublicHealth();
+    const health = await loadPublicHealth();
+    const ageHours = (Date.now() - new Date(health.generatedAt).getTime()) / 3_600_000;
+    return { ...health, ageHours };
   } catch {
     return {
       ok: false,
@@ -656,6 +670,7 @@ export async function getPublicDataHealth(): Promise<PublicDataHealth> {
       totalActive: 0,
       repostPct: 0,
       sources: [],
+      ageHours: 0,
     };
   }
 }

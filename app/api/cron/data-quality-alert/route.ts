@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import * as Sentry from '@sentry/nextjs';
 import {
   getDataQualityReport,
@@ -46,6 +47,24 @@ export async function GET(request: Request) {
         { status: 500 },
       );
     }
+
+    // Push the fresh numbers to the public page.
+    //
+    // /status wraps the same report in unstable_cache with revalidate: 600 and
+    // that expiry did not fire: on 2026-09-01 the page was still serving the
+    // report generated on 2026-08-26 at 00:07, six days old, claiming bazos.sk
+    // was 35.9% price-less when it was 37.7% and that autobazar.eu prices were
+    // 59.7% inside SLA when they were 6.1%. A status page that is confidently
+    // wrong is worse than one that admits it does not know.
+    //
+    // This watchdog already computes the identical report, so tagging it here
+    // caps staleness at one day regardless of whether the timer ever works.
+    // The page also shows the age now, so a gap is visible rather than implied.
+    // Two arguments, per the Next 16 reference: the single-argument form is
+    // deprecated. 'max' marks the entry stale and lets the next visitor take
+    // fresh data through stale-while-revalidate. updateTag would expire it
+    // outright but is Server-Actions-only, so it is not available here.
+    revalidateTag('data-health', 'max');
     // Dedup defects are reported at error level, not warning. Selector drift
     // makes new rows worse; a false merge makes existing rows disappear from
     // the market, and nothing notices because the listings still exist. 13 631

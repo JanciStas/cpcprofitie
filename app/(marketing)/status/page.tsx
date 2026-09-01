@@ -102,6 +102,16 @@ function SourceCard({ s }: { s: PublicDataHealth['sources'][number] }) {
 export default async function StatusPage() {
   const health = await getPublicDataHealth();
   const overall = OVERALL_CFG[health.overall];
+  // How old the numbers below actually are.
+  //
+  // This page served a report generated on 26 August until 1 September without
+  // saying so -- six days, while claiming autobazar.eu prices were 59.7% inside
+  // SLA when they were 6.1%. The cached report is refreshed by the daily
+  // watchdog now, but a page whose whole job is reporting data quality must not
+  // be able to go quietly stale again: if the timestamp is old, say it loudly
+  // rather than presenting the figures as current.
+  const ageHours = health.overall === 'unknown' ? null : health.ageHours;
+  const stale = ageHours != null && ageHours > 24;
   const updated =
     health.overall === 'unknown'
       ? null
@@ -116,10 +126,20 @@ export default async function StatusPage() {
         <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Verejný prehľad</p>
         <h1 className="text-3xl font-bold tracking-tight">Stav dát</h1>
         <p className="text-muted-foreground text-sm">
-          Živý prehľad kvality scrapovaných dát, na ktorých stojí DealScore. Obnovuje sa približne
-          každých 10 minút.
+          Živý prehľad kvality scrapovaných dát, na ktorých stojí DealScore. Prepočítava sa
+          priebežne a najmenej raz denne.
         </p>
       </div>
+
+      {stale && (
+        <div className="mt-8 rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-4">
+          <p className="text-lg font-semibold">Čísla nižšie sú zastarané</p>
+          <p className="mt-0.5 text-sm opacity-90">
+            Posledný prepočet prebehol pred {Math.floor(ageHours! / 24)} dňami. Skutočný stav sa od
+            zobrazeného môže výrazne líšiť.
+          </p>
+        </div>
+      )}
 
       <div className={`mt-8 rounded-xl border px-5 py-4 ${overall.cls}`}>
         <p className="text-lg font-semibold">{overall.label}</p>
