@@ -37,6 +37,10 @@
       "schedule": "15 3 * * *"
     },
     {
+      "path": "/api/cron/enrich-source?source=autobazar.sk&mode=null-vin",
+      "schedule": "33 * * * *"
+    },
+    {
       "path": "/api/admin/classify-vehicles",
       "schedule": "20 1 * * *"
     },

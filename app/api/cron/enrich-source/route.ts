@@ -4,6 +4,7 @@ import { DbUnavailableError, isConnectionError, noteDbUnavailable } from '@/lib/
 import { getSource } from '@/lib/scraping';
 import { loadUnenrichedBatch, type EnrichSelectMode } from '@/lib/scraping/enrich-batch-loader';
 import { MassGoneError, persistDetails, runEnrichment } from '@/lib/scraping';
+import { loadJobCursor, saveJobCursor } from '@/lib/analytics/job-cursor';
 import { ALL_SOURCES, type Source } from '@/lib/scraping';
 import { pickSource } from '@/lib/scraping/rotation';
 
@@ -115,6 +116,16 @@ export async function POST(request: Request) {
   if (isBackfill && typeof payload.afterId === 'string' && /^\d+$/.test(payload.afterId)) {
     cursor = BigInt(payload.afterId);
   }
+  // A cron cannot hand its own cursor back, so a scheduled backfill reads it
+  // from job_cursors instead -- the same fix that got the other backfills
+  // scheduled at all. An explicit ?afterId still wins, so the driver scripts
+  // behave exactly as before, and a dry run never moves it.
+  const useJobCursor = isBackfill && cursor == null && payload.afterId == null;
+  const jobKey = `enrich:${sourceId}:${mode}`;
+  if (useJobCursor) {
+    const { afterId } = await loadJobCursor(jobKey);
+    if (afterId != null) cursor = afterId;
+  }
   // Optional id-based partitioning so N shells can run in parallel on
   // disjoint id subsets.
   const partition =
@@ -216,6 +227,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Saved after the work, not before: a run that dies mid-batch should redo the
+  // slice rather than skip it. `done` resets the cursor and bumps pass_no, so
+  // rows that never yield a VIN are revisited on the next pass instead of
+  // wedging the walk at the head of the set.
+  if (useJobCursor) {
+    await saveJobCursor(jobKey, done ? null : (cursor?.toString() ?? null));
+  }
+
   return NextResponse.json({
     source: sourceId,
     done,
@@ -228,6 +247,7 @@ export async function POST(request: Request) {
     // The driver must send this back as `afterId` next invocation so the walk
     // continues past rows already visited (backfill modes only).
     nextCursor: isBackfill && cursor != null ? cursor.toString() : undefined,
+    jobCursor: useJobCursor ? (done ? null : (cursor?.toString() ?? null)) : undefined,
     elapsedMs: Date.now() - startedAt,
   });
 }
