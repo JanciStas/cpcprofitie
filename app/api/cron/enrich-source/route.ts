@@ -83,7 +83,9 @@ export async function POST(request: Request) {
   // still missing a price / model (backfill); default 'unenriched' keeps the
   // normal first-pass flow.
   const mode: EnrichSelectMode =
-    payload.mode === 'null-description'
+    payload.mode === 'null-vin'
+      ? 'null-vin'
+      : payload.mode === 'null-description'
       ? 'null-description'
       : payload.mode === 'null-price'
       ? 'null-price'
@@ -104,6 +106,7 @@ export async function POST(request: Request) {
     mode === 'null-model' ||
     mode === 'null-locality' ||
     mode === 'null-country' ||
+    mode === 'null-vin' ||
     mode === 'null-description';
   // Cursor carried across invocations so the driver walks the whole backfill
   // set once. Without it, rows that stay NULL after enrichment (Cena dohodou,

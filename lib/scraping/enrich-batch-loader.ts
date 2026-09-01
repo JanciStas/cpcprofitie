@@ -29,7 +29,8 @@ export type EnrichSelectMode =
   | 'null-price'
   | 'null-model'
   | 'null-locality'
-  | 'null-country';
+  | 'null-country'
+  | 'null-vin';
 
 export async function loadUnenrichedBatch(
   source: Source,
@@ -69,8 +70,28 @@ export async function loadUnenrichedBatch(
     ),
   );
 
+  // 'null-vin' is the odd one out: VIN lives on listing_details, not on
+  // listings, so it cannot join the column-based group below. It exists because
+  // autobazar.sk had a VIN on every detail page and we had recorded none --
+  // those rows are fully enriched, so no other mode would ever look at them
+  // again.
+  const nullVinFilter = and(
+    exists(
+      db
+        .select({ x: sql`1` })
+        .from(listingDetails)
+        .where(and(eq(listingDetails.listingId, listings.id), isNull(listingDetails.vin))),
+    ),
+    isNull(listings.canonicalListingId),
+    isNull(listings.soldAt),
+    isNull(listings.removedAt),
+    afterId != null ? gt(listings.id, afterId) : undefined,
+  );
+
   const selectFilter =
-    mode === 'null-description'
+    mode === 'null-vin'
+      ? nullVinFilter
+      : mode === 'null-description'
       ? nullDescriptionFilter
       : mode === 'null-price' ||
         mode === 'null-model' ||
