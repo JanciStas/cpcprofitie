@@ -30,7 +30,8 @@ export type EnrichSelectMode =
   | 'null-model'
   | 'null-locality'
   | 'null-country'
-  | 'null-vin';
+  | 'null-vin'
+  | 'stale-price';
 
 export async function loadUnenrichedBatch(
   source: Source,
@@ -88,8 +89,31 @@ export async function loadUnenrichedBatch(
     afterId != null ? gt(listings.id, afterId) : undefined,
   );
 
+  // 'stale-price' is the only mode that looks for an OLD value rather than a
+  // missing one, and it exists because that gap had a cost.
+  //
+  // bazos.sk repeats its last page past a certain depth, so the catalogue walk
+  // reaches about 20 000 of its 60 000 active listings. The other ~40 000 can
+  // only be re-read by id — which this pass does — but every other mode asks
+  // "is this field empty?", and those rows have both a detail row and a price.
+  // Nothing would ever have revisited them, so their prices were frozen for
+  // good while still counting in the reference medians.
+  //
+  // Ordering by price_checked_at makes it self-targeting: the catalogue walk
+  // keeps whatever it can reach fresh, so the stalest rows ARE the unreachable
+  // ones. No list of which pages the source hides has to be maintained.
+  const stalePriceFilter = and(
+    isNull(listings.canonicalListingId),
+    isNull(listings.soldAt),
+    isNull(listings.removedAt),
+    sql`${listings.priceCheckedAt} IS NULL
+        OR ${listings.priceCheckedAt} < now() - interval '7 days'`,
+  );
+
   const selectFilter =
-    mode === 'null-vin'
+    mode === 'stale-price'
+      ? stalePriceFilter
+      : mode === 'null-vin'
       ? nullVinFilter
       : mode === 'null-description'
       ? nullDescriptionFilter
@@ -124,7 +148,15 @@ export async function loadUnenrichedBatch(
   // backlog and wrong for everything else: with tens of thousands of old rows
   // queued, a listing that appeared this morning would wait behind all of them
   // — and a new listing is exactly the one a flip opportunity is about.
-  const order = mode === 'unenriched-newest' ? desc(listings.firstSeenAt) : listings.id;
+  // 'stale-price' walks by staleness, not by id: it is a rotating refresh, not
+  // a one-pass backfill, so it needs no cursor — a row it refreshes drops out
+  // of the filter and goes to the back of the queue on its own.
+  const order =
+    mode === 'unenriched-newest'
+      ? desc(listings.firstSeenAt)
+      : mode === 'stale-price'
+        ? sql`${listings.priceCheckedAt} ASC NULLS FIRST`
+        : listings.id;
   const rows = await db
     .select({
       id: listings.id,

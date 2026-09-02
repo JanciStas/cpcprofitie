@@ -41,6 +41,10 @@
       "schedule": "33 * * * *"
     },
     {
+      "path": "/api/cron/enrich-source?source=bazos.sk&mode=stale-price",
+      "schedule": "47 * * * *"
+    },
+    {
       "path": "/api/admin/classify-vehicles",
       "schedule": "20 1 * * *"
     },

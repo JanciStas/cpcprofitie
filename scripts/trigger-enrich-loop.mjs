@@ -43,8 +43,8 @@ for (const arg of process.argv.slice(3)) {
   if (md) {
     // Reject typos loudly instead of silently falling through to a full
     // unenriched pass the operator didn't ask for.
-    if (!['null-price', 'null-model', 'null-locality', 'null-country', 'null-vin', 'null-description', 'unenriched', 'unenriched-newest'].includes(md[1])) {
-      console.error(`invalid --mode='${md[1]}' (expected null-price|null-model|null-locality|null-country|null-vin|null-description|unenriched|unenriched-newest)`);
+    if (!['null-price', 'null-model', 'null-locality', 'null-country', 'null-vin', 'stale-price', 'null-description', 'unenriched', 'unenriched-newest'].includes(md[1])) {
+      console.error(`invalid --mode='${md[1]}' (expected null-price|null-model|null-locality|null-country|null-vin|stale-price|null-description|unenriched|unenriched-newest)`);
       process.exit(2);
     }
     mode = md[1];

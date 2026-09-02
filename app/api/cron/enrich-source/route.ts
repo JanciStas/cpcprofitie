@@ -84,7 +84,9 @@ export async function POST(request: Request) {
   // still missing a price / model (backfill); default 'unenriched' keeps the
   // normal first-pass flow.
   const mode: EnrichSelectMode =
-    payload.mode === 'null-vin'
+    payload.mode === 'stale-price'
+      ? 'stale-price'
+      : payload.mode === 'null-vin'
       ? 'null-vin'
       : payload.mode === 'null-description'
       ? 'null-description'
@@ -109,6 +111,10 @@ export async function POST(request: Request) {
     mode === 'null-country' ||
     mode === 'null-vin' ||
     mode === 'null-description';
+  // 'stale-price' is deliberately absent from isBackfill: it orders by
+  // price_checked_at, and a refreshed row leaves the filter by itself. An id
+  // cursor would actively break it by walking past the stalest rows.
+
   // Cursor carried across invocations so the driver walks the whole backfill
   // set once. Without it, rows that stay NULL after enrichment (Cena dohodou,
   // gone) sit at the head and every invocation re-fetches them → livelock.
