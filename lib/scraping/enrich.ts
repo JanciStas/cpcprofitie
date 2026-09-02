@@ -47,7 +47,24 @@ export type EnrichResult = {
   details: NormalizedDetail[];
   fetched: number;
   errors: string[];
+  /** How many of `fetched` reported gone. Exposed so a caller that batches can
+   *  apply the ceiling across the whole run — see exceedsGoneCeiling. */
+  gone: number;
 };
+
+/**
+ * Is this share of gone pages beyond belief?
+ *
+ * Exported because the in-batch check below is NOT the one that protects
+ * production. The cron drives this function in batches of ten, so `goneCount`
+ * could never reach MIN_GONE_FOR_GUARD (20) and MassGoneError was unreachable
+ * from the only caller that matters — the guard existed, was tested, and did
+ * nothing where the 25 August episode actually happened. The caller now
+ * accumulates across batches and applies the same predicate.
+ */
+export function exceedsGoneCeiling(goneCount: number, fetched: number): boolean {
+  return goneCount >= MIN_GONE_FOR_GUARD && goneCount > fetched * MAX_GONE_SHARE;
+}
 
 // Re-uses the per-host robots cache by re-deriving from the URL. To keep this
 // module decoupled from scrape.ts the cache lives there; here we just call
@@ -89,7 +106,12 @@ export async function runEnrichment(
   opts: EnrichOptions = {},
 ): Promise<EnrichResult> {
   if (!source.detailUrl || !source.parseDetailPage) {
-    return { details: [], fetched: 0, errors: ['source has no detailUrl/parseDetailPage'] };
+    return {
+      details: [],
+      fetched: 0,
+      errors: ['source has no detailUrl/parseDetailPage'],
+      gone: 0,
+    };
   }
   const limit = opts.limit ?? 30;
   const f = opts.fetchImpl ?? fetch;
@@ -187,14 +209,14 @@ export async function runEnrichment(
   // read back as demand. Refusing the whole batch is the cheap direction to be
   // wrong in: the rows are re-read on the next pass, whereas removed_at is
   // acted on by the sold detector before anyone notices.
-  if (goneCount >= MIN_GONE_FOR_GUARD && goneCount > fetched * MAX_GONE_SHARE) {
+  if (exceedsGoneCeiling(goneCount, fetched)) {
     throw new MassGoneError(
       `${source.id}: ${goneCount}/${fetched} detail pages reported gone, ` +
         `over the ${Math.round(MAX_GONE_SHARE * 100)}% ceiling -- refusing the batch`,
     );
   }
 
-  return { details, fetched, errors };
+  return { details, fetched, errors, gone: goneCount };
 }
 
 function sleep(ms: number) {

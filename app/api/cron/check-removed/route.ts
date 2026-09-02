@@ -145,8 +145,21 @@ async function run(request: Request): Promise<NextResponse> {
 
   // One independent keyset walk per source, so a big source cannot starve a
   // small one and each wraps on its own schedule.
-  const queues: Array<{ source: string; rows: Candidate[]; pos: number; nextAllowedAt: number }> =
-    [];
+  const queues: Array<{
+    source: string;
+    /** The key this source's cursor was READ from — and the only one it may be
+     *  written to. Reverify and the sweep walk different row sets under
+     *  different keys, and writing one under the other's key silently moves a
+     *  walk nobody was running. */
+    jobKey: string;
+    rows: Candidate[];
+    /** True when the source returned fewer rows than asked for, i.e. the table
+     *  really is exhausted rather than the page of candidates merely being
+     *  used up. Only this justifies resetting the cursor. */
+    atEndOfTable: boolean;
+    pos: number;
+    nextAllowedAt: number;
+  }> = [];
   const cursors: Record<string, { from: string | null; pass: number }> = {};
 
   for (const source of SOURCES_TO_CHECK) {
@@ -195,12 +208,14 @@ async function run(request: Request): Promise<NextResponse> {
     )) as unknown as Array<{ id: string | number | bigint; url: string; source_id: string }>;
     queues.push({
       source,
+      jobKey,
       rows: rows.map((r) => ({
         id: toBigInt(r.id),
         url: r.url,
         source,
         sourceId: r.source_id,
       })),
+      atEndOfTable: rows.length < perSource,
       pos: 0,
       nextAllowedAt: 0,
     });
@@ -417,16 +432,28 @@ async function run(request: Request): Promise<NextResponse> {
   // whose queue ran out has reached the end of the table: reset it so the next
   // pass starts from the top, exactly as the backfills do.
   for (const q of queues) {
-    // Backing off empties the queue by design, which must not be mistaken for
-    // reaching the end of the table — wrapping there would skip everything
-    // after the blocked row until the next full pass.
-    const wrapped = exhausted.has(q.source) && !stats.bySource[q.source]!.backedOff;
+    // Three things have to be true before the cursor goes back to the top, and
+    // two of them used to be missing:
+    //
+    //  * the queue was drained (`exhausted`) — necessary, never sufficient. It
+    //    is capped by LIMIT perSource, so draining it usually just means "I
+    //    finished this page of candidates".
+    //  * the source returned FEWER rows than asked for, which is the only
+    //    evidence the table itself ran out. Without it, any run whose queue
+    //    fitted inside the deadline reset the cursor and re-checked the same
+    //    first rows for ever — the exact livelock job_cursors exists to stop.
+    //  * we did not back off: backing off empties the queue by design.
+    const wrapped =
+      exhausted.has(q.source) && q.atEndOfTable && !stats.bySource[q.source]!.backedOff;
     stats.bySource[q.source]!.wrapped = wrapped;
     const last = lastDecided[q.source];
+    // q.jobKey, never a rebuilt string: reverify reads `reverify-removed:*` and
+    // used to write `check-removed:*`, so a reverify pass moved — and on wrap
+    // reset — the liveness sweep's cursor while its own never advanced at all.
     if (wrapped) {
-      await saveJobCursor(`check-removed:${q.source}`, null);
+      await saveJobCursor(q.jobKey, null);
     } else if (last != null) {
-      await saveJobCursor(`check-removed:${q.source}`, last.toString());
+      await saveJobCursor(q.jobKey, last.toString());
     }
   }
 

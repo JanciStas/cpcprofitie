@@ -67,7 +67,7 @@ export function WeeklyDigestEmail({ trends, appUrl }: { trends: TrendRow[]; appU
                       )}`
                     : ''}
                   {' · '}
-                  <Link href={`${appUrl}/app/trends/${t.modelSlug}`} style={{ color: '#2563eb' }}>
+                  <Link href={`${appUrl}/app/trends/${t.makeSlug}-${t.modelSlug}`} style={{ color: '#2563eb' }}>
                     detail
                   </Link>
                 </Text>

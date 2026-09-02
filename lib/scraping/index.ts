@@ -19,6 +19,7 @@ export {
   runEnrichment,
   __resetEnrichRobotsCache,
   MassGoneError,
+  exceedsGoneCeiling,
   MAX_GONE_SHARE,
   MIN_GONE_FOR_GUARD,
 } from './enrich';

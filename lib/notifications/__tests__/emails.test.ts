@@ -60,7 +60,7 @@ describe('WeeklyDigestEmail render', () => {
   const trend: TrendRow = {
     modelId: 1,
     makeSlug: 'skoda',
-    modelSlug: 'skoda-octavia',
+    modelSlug: 'octavia',
     modelName: 'Škoda Octavia',
     countActive: 120,
     countActiveLastWeek: 100,

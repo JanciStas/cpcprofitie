@@ -3,6 +3,7 @@ import {
   MAX_GONE_SHARE,
   MIN_GONE_FOR_GUARD,
   MassGoneError,
+  exceedsGoneCeiling,
   __resetEnrichRobotsCache,
   runEnrichment,
 } from '../enrich';
@@ -156,6 +157,44 @@ describe('mass-gone guard', () => {
       fetchImpl: fetchReturning(() => 200),
     });
     expect(res.details).toHaveLength(3);
+  });
+
+  it('fires across batches the size the cron actually uses', () => {
+    // THE BUG THIS PINS. The cron drives runEnrichment ten rows at a time, and
+    // the floor is twenty, so the per-batch check could never trigger there:
+    // the guard existed, was tested against a 100-row batch production never
+    // sends, and protected nothing. The caller accumulates and applies the same
+    // predicate, so the ceiling is reached where the episode happens.
+    const BATCH = 10;
+    let gone = 0;
+    let fetched = 0;
+    let firedAfter = 0;
+    for (let batch = 1; batch <= 10; batch++) {
+      gone += BATCH; // a source refusing everything
+      fetched += BATCH;
+      if (!firedAfter && exceedsGoneCeiling(gone, fetched)) firedAfter = batch;
+    }
+    expect(firedAfter).toBe(2);
+  });
+
+  it('does not fire across batches on an ordinary trickle of dead listings', () => {
+    let gone = 0;
+    let fetched = 0;
+    for (let batch = 1; batch <= 50; batch++) {
+      gone += 1; // one in ten, a normal day
+      fetched += 10;
+    }
+    expect(exceedsGoneCeiling(gone, fetched)).toBe(false);
+  });
+
+  it('reports how many of a batch were gone so a caller can accumulate', async () => {
+    const res = await runEnrichment(source, many(10), {
+      delayMs: 0,
+      limit: 10,
+      fetchImpl: fetchReturning((id) => (Number(id) <= 3 ? 404 : 200)),
+    });
+    expect(res.gone).toBe(3);
+    expect(res.fetched).toBe(10);
   });
 
   it('keeps the ceiling where the measurement put it', () => {

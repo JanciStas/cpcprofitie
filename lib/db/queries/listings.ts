@@ -19,6 +19,26 @@ import {
   type SQL,
 } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
+
+/**
+ * Revalidation tag for everything on this page that counts listings.
+ *
+ * Two separate failures made this necessary, both measured:
+ *
+ *  1. `revalidate` does not fire. /status sat on a report six days old with
+ *     `revalidate: 600`, and the next morning was still 18 hours stale. The
+ *     docs also say unstable_cache "persists the result across requests AND
+ *     DEPLOYMENTS", so shipping does not clear it either. Without a tag there
+ *     was no way to refresh these at all -- the corpus grew past 145 000 active
+ *     listings while the page kept showing an older number.
+ *  2. The graceful DB-outage fallback used to be computed INSIDE the cached
+ *     function, so one blip stored zeros (or an empty model list) for the whole
+ *     window. The cached half now throws and the wrapper catches, which is what
+ *     getPublicDataHealth already does for the same reason.
+ *
+ * Refreshed by the daily data-quality watchdog.
+ */
+export const CACHE_TAG_LISTINGS = 'listings-counts';
 import { getDb } from '../index';
 import {
   listingDetails,
@@ -399,15 +419,11 @@ export type RegionGroup = { name: string; count: number };
 // index, so each request fanout would stack 8 sequential seqscans over 93k
 // rows and saturate Postgres. The kraj counts only drift slowly with new
 // listings, so a 10-minute revalidation window is fine.
-export const getRegionGroups = unstable_cache(
+const loadRegionGroups = unstable_cache(
   async (): Promise<RegionGroup[]> => {
-    let db;
-    try {
-      db = getDb();
-    } catch (e) {
-      Sentry.captureException(e, { tags: { component: 'listings', step: 'getRegionGroups' } });
-      return SK_KRAJE.map((k) => ({ name: k.name, count: 0 }));
-    }
+    // Throws rather than returning zeros, because unstable_cache would store
+    // the zeros. See the note on CACHE_TAG_LISTINGS.
+    const db = getDb();
     const results = await Promise.all(
       SK_KRAJE.map(async (k) => {
         const condition = or(...k.patterns.map((p) => ilike(listings.region, p)));
@@ -421,22 +437,25 @@ export const getRegionGroups = unstable_cache(
     return results;
   },
   ['listings-region-groups'],
-  { revalidate: 600 },
+  { revalidate: 600, tags: [CACHE_TAG_LISTINGS] },
 );
+
+export async function getRegionGroups(): Promise<RegionGroup[]> {
+  try {
+    return await loadRegionGroups();
+  } catch (e) {
+    Sentry.captureException(e, { tags: { component: 'listings', step: 'getRegionGroups' } });
+    return SK_KRAJE.map((k) => ({ name: k.name, count: 0 }));
+  }
+}
 
 export type TopMake = { name: string; count: number };
 
 // Top N makes by active listing count. Used by the v2 listings UI for the
 // horizontal brand-chip strip under the search input.
-export const getTopMakes = unstable_cache(
+const loadTopMakes = unstable_cache(
   async (limit = 10): Promise<TopMake[]> => {
-    let db;
-    try {
-      db = getDb();
-    } catch (e) {
-      Sentry.captureException(e, { tags: { component: 'listings', step: 'getTopMakes' } });
-      return [];
-    }
+    const db = getDb();
     const rows = await db
       .select({
         name: vehicleMakes.name,
@@ -454,8 +473,17 @@ export const getTopMakes = unstable_cache(
       .map((r) => ({ name: r.name, count: r.n }));
   },
   ['listings-top-makes'],
-  { revalidate: 600 },
+  { revalidate: 600, tags: [CACHE_TAG_LISTINGS] },
 );
+
+export async function getTopMakes(limit = 10): Promise<TopMake[]> {
+  try {
+    return await loadTopMakes(limit);
+  } catch (e) {
+    Sentry.captureException(e, { tags: { component: 'listings', step: 'getTopMakes' } });
+    return [];
+  }
+}
 
 export async function getDistinctRegions(): Promise<string[]> {
   try {
@@ -477,15 +505,9 @@ export async function getDistinctRegions(): Promise<string[]> {
 // Cached: 4 COUNT queries per request was producing stacking DB load under
 // concurrent traffic. Stats values drift slowly (new listings every 6h via
 // cron), so a 10-minute window is plenty for the header strip and ROZLOŽENIE.
-export const getListingsStats = unstable_cache(
+const loadListingsStats = unstable_cache(
   async (): Promise<ListingsStats> => {
-    let db;
-    try {
-      db = getDb();
-    } catch (e) {
-      Sentry.captureException(e, { tags: { component: 'listings', step: 'getListingsStats' } });
-      return { totalListings: 0, totalPhotos: 0, totalEnriched: 0, bySource: [] };
-    }
+    const db = getDb();
     const [listingsCount, photosCount, enrichedCount, bySource] = await Promise.all([
       db.select({ n: sql<number>`count(*)::int` }).from(listings),
       db.select({ n: sql<number>`count(*)::int` }).from(listingPhotos),
@@ -500,5 +522,14 @@ export const getListingsStats = unstable_cache(
     };
   },
   ['listings-stats'],
-  { revalidate: 600 },
+  { revalidate: 600, tags: [CACHE_TAG_LISTINGS] },
 );
+
+export async function getListingsStats(): Promise<ListingsStats> {
+  try {
+    return await loadListingsStats();
+  } catch (e) {
+    Sentry.captureException(e, { tags: { component: 'listings', step: 'getListingsStats' } });
+    return { totalListings: 0, totalPhotos: 0, totalEnriched: 0, bySource: [] };
+  }
+}

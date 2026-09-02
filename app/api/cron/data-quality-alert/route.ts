@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
+import { CACHE_TAG_LISTINGS } from '@/lib/db/queries/listings';
 import * as Sentry from '@sentry/nextjs';
 import {
   getDataQualityReport,
@@ -65,6 +66,11 @@ export async function GET(request: Request) {
     // fresh data through stale-while-revalidate. updateTag would expire it
     // outright but is Server-Actions-only, so it is not available here.
     revalidateTag('data-health', 'max');
+    // The same freeze applies to every counting query on /app/listings, the v2
+    // brand strip and the model dropdown. They carry no timer that works and
+    // had no tag at all, so before this they could not be refreshed by anything
+    // short of changing their cache key.
+    revalidateTag(CACHE_TAG_LISTINGS, 'max');
     // Dedup defects are reported at error level, not warning. Selector drift
     // makes new rows worse; a false merge makes existing rows disappear from
     // the market, and nothing notices because the listings still exist. 13 631

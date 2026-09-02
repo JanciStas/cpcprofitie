@@ -17,6 +17,19 @@ import {
   vehicleModels,
 } from '@/lib/db/schema';
 import { computeFingerprint } from '@/lib/dedup/fingerprint';
+import { PRICE_MAX, PRICE_MIN } from '@/lib/analytics/quality';
+
+/**
+ * May a price read off a detail page replace the stored one?
+ *
+ * Every source already bounds-checks at parse time, but autobazar.eu only
+ * enforces a floor, so the ceiling is repeated here: this value OVERWRITES the
+ * stored price rather than filling a gap, and one misparsed decimal would
+ * otherwise land straight in the reference medians.
+ */
+export function detailPriceIsUsable(priceEur: number | null | undefined): boolean {
+  return priceEur != null && priceEur >= PRICE_MIN && priceEur <= PRICE_MAX;
+}
 import { resolveBrand } from './vehicle-dictionary';
 import type { NormalizedDetail, NormalizedListing, ScrapeResult, Source } from './types';
 
@@ -759,14 +772,29 @@ export async function persistDetails(details: NormalizedDetail[]): Promise<Detai
         // the domain name", and leaving country='SK' on a car the seller filed
         // under Zahraničie would keep a foreign price in the Slovak reference.
         if (o.foreignLocality === true) set.country = sql`NULL`;
-        if (o.priceEur != null) {
-          set.priceEur = sql`coalesce(${listings.priceEur}, ${String(o.priceEur)})`;
-          // A price read off the detail page is a real observation, so it
-          // counts for freshness. Migration 0012 said this path stamped the
-          // column; it never did, which left every price recovered from a
-          // detail page looking unverified — excluded from the price history
-          // and counted against the freshness metric.
-          set.priceCheckedAt = sql`coalesce(${listings.priceCheckedAt}, now())`;
+        if (detailPriceIsUsable(o.priceEur)) {
+          // OVERWRITE, not fill. This is the one field on a detail page that is
+          // a fresh measurement rather than a gap-filler, and treating it as a
+          // gap-filler had a consequence nobody costed:
+          //
+          // bazos.sk repeats its last page beyond a certain depth (offsets
+          // 60 000 and 120 000 return the identical twenty adverts), so the
+          // catalogue walk reaches about 20 000 of its 60 000 active listings.
+          // Roughly 40 000 bazos prices are therefore unreachable by the walk,
+          // and the detail pass — which goes by id and has no depth ceiling —
+          // was the only path left. With coalesce it refreshed neither the
+          // price nor its timestamp, so those prices were frozen for good while
+          // still counting in the reference medians.
+          //
+          // Safe to overwrite because every source validates the value at parse
+          // time against the same bounds and anchors on the same element the
+          // list parser uses; the guard above repeats the bounds so the one
+          // source with no upper limit cannot slip a decimal past us.
+          set.priceEur = sql`${String(o.priceEur)}`;
+          // Migration 0012 claimed this path stamped the column. It did not,
+          // and then coalesce meant it still did not for any row that already
+          // had a stamp — which is every row the walk had ever seen.
+          set.priceCheckedAt = sql`now()`;
         }
       }
       // Identity backfill for title-less/model-less stubs: resolve model_id the

@@ -5,6 +5,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { asc, eq, exists, sql } from 'drizzle-orm';
 import { unstable_cache } from 'next/cache';
+import { CACHE_TAG_LISTINGS } from './listings';
 import { getDb } from '../index';
 import { listings, vehicleMakes, vehicleModels } from '../schema';
 
@@ -19,13 +20,31 @@ export type ModelOption = {
 // force-dynamic — without the cache it re-executes per page view. Same
 // pattern as getRegionGroups in listings.ts (incl. caching the graceful
 // fallback on transient errors).
-export const getModelOptions = unstable_cache(getModelOptionsUncached, ['model-options'], {
+const loadModelOptions = unstable_cache(getModelOptionsUncached, ['model-options'], {
   revalidate: 3600,
+  tags: [CACHE_TAG_LISTINGS],
 });
 
-// Graceful-empty on DB unavailability, matching the other query modules.
-async function getModelOptionsUncached(): Promise<ModelOption[]> {
+/**
+ * The fallback lives out here, not inside the cached function.
+ *
+ * It used to be inside, so a single DB blip stored an EMPTY model list for a
+ * full hour -- an unusable dropdown on the garage and watchlist pages, with no
+ * way to clear it because the entry carried no tag either.
+ */
+export async function getModelOptions(): Promise<ModelOption[]> {
   try {
+    return await loadModelOptions();
+  } catch (e) {
+    Sentry.captureException(e, { tags: { component: 'models', step: 'getModelOptions' } });
+    return [];
+  }
+}
+
+// Throws on DB unavailability; getModelOptions catches. Returning [] from here
+// would let unstable_cache store the empty list.
+async function getModelOptionsUncached(): Promise<ModelOption[]> {
+  {
     const db = getDb();
     const rows = await db
       .select({
@@ -50,8 +69,5 @@ async function getModelOptionsUncached(): Promise<ModelOption[]> {
       )
       .orderBy(asc(vehicleMakes.name), asc(vehicleModels.name));
     return rows;
-  } catch (e) {
-    Sentry.captureException(e, { tags: { component: 'models', step: 'getModelOptions' } });
-    return [];
   }
 }

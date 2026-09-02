@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { DbUnavailableError, isConnectionError, noteDbUnavailable } from '@/lib/db/errors';
 import { getSource } from '@/lib/scraping';
 import { loadUnenrichedBatch, type EnrichSelectMode } from '@/lib/scraping/enrich-batch-loader';
-import { MassGoneError, persistDetails, runEnrichment } from '@/lib/scraping';
+import { MassGoneError, exceedsGoneCeiling, persistDetails, runEnrichment } from '@/lib/scraping';
 import { loadJobCursor, saveJobCursor } from '@/lib/analytics/job-cursor';
 import { ALL_SOURCES, type Source } from '@/lib/scraping';
 import { pickSource } from '@/lib/scraping/rotation';
@@ -147,6 +147,7 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
   const deadline = startedAt + TIME_BUDGET_MS;
   let totalFetched = 0;
+  let totalGone = 0;
   let totalDetails = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
@@ -195,7 +196,28 @@ export async function POST(request: Request) {
         totalSkipped += saved.skipped;
       }
       totalFetched += result.fetched;
+      totalGone += result.gone;
       totalErrors += result.errors.length;
+      // The ceiling that matters, applied across the whole run.
+      //
+      // runEnrichment checks the same predicate per batch, but this route hands
+      // it ten rows at a time and the floor is twenty, so the in-batch check can
+      // never fire here. That made the guard against the 25 August episode --
+      // 3 676 listings marked gone in a day -- inert in the one place it was
+      // written for. Accumulating first is what gives it teeth.
+      if (exceedsGoneCeiling(totalGone, totalFetched)) {
+        const message =
+          `${sourceId}: ${totalGone}/${totalFetched} detail pages reported gone across ` +
+          `${batches} batches, over the ceiling -- stopping the run`;
+        Sentry.captureMessage(message, {
+          level: 'error',
+          tags: { component: 'enrich-source', step: 'massGone', source: sourceId },
+        });
+        return NextResponse.json(
+          { error: 'mass_gone', message, source: sourceId, batches, totalDetails },
+          { status: 502 },
+        );
+      }
       for (const e of result.errors) {
         if (sampleErrors.length < 5) sampleErrors.push(e);
       }
