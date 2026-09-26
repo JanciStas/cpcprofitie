@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth/server';
 import { MobileNav } from '@/components/app/mobile-nav';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { aiListingsAvailable } from '@/lib/ai/availability';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -10,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="border-border/40 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <MobileNav />
+            <MobileNav aiAvailable={aiListingsAvailable()} />
             <Link href="/app/overview" className="flex items-center gap-2">
               <span className="from-primary to-chart-2 flex size-7 items-center justify-center rounded-md bg-gradient-to-br text-xs font-bold text-white">
                 C
@@ -27,7 +28,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               { href: '/app/listings', label: 'Inzeráty' },
               { href: '/app/garage', label: 'Garáž' },
               { href: '/app/watchlist', label: 'Watchlist' },
-              { href: '/app/ai-listing', label: 'AI inzerát' },
+              ...(aiListingsAvailable() ? [{ href: '/app/ai-listing', label: 'AI inzerát' }] : []),
+              // Profile and plan used to exist only in the mobile menu, so a
+              // desktop user had no way to reach their account at all.
+              { href: '/app/profile', label: 'Účet' },
             ].map((link) => (
               <Link
                 key={link.href}

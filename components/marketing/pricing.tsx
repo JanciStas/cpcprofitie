@@ -3,21 +3,27 @@ import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
+// Free beta: nobody can pay yet (Stripe is not configured in production, and
+// the checkout path never persisted a subscription), so only the beta plan has
+// a live button. The paid plans list only what actually exists in the product;
+// they used to advertise an API, push alerts, "anomálie" and a 4-hour support
+// SLA, none of which was built.
 const plans = [
   {
-    name: 'Free',
+    name: 'Beta',
     price: '€0',
-    period: '7 dní',
-    description: 'Skúsite si platformu bez záväzkov.',
-    cta: 'Začať skúšobné obdobie',
-    href: '/register',
-    highlighted: false,
+    period: 'počas bety',
+    description: 'Plný prístup k trhovým dátam, kým ladíme produkt.',
+    cta: 'Začať zadarmo',
+    href: '/register' as string | null,
+    highlighted: true,
     features: [
-      '3 analýzy modelov',
-      '3 AI inzeráty',
-      '1 sledovaný model',
-      'Prehľad trhu (limitovaný)',
-      'E-mail podpora',
+      'Inzeráty z 3 portálov na jednom mieste',
+      'DealScore a príležitosti pod trhovou cenou',
+      'Trendy cien a zlacnení po modeloch',
+      '3 AI inzeráty mesačne',
+      '1 sledovaný model s e-mail upozornením',
+      'Moja garáž (do 3 áut)',
     ],
   },
   {
@@ -25,15 +31,13 @@ const plans = [
     price: '€19',
     period: 'mesačne',
     description: 'Pre solo dealerov a malé bazáre.',
-    cta: 'Zvoliť Plus',
-    href: '/register?plan=plus',
-    highlighted: true,
+    cta: 'Pripravujeme',
+    href: null,
+    highlighted: false,
     features: [
-      'Neobmedzené analýzy a porovnania',
+      'Všetko z bety',
       '50 AI inzerátov mesačne',
       '5 sledovaných modelov',
-      'E-mail alerty (1 / deň)',
-      'Plný prehľad trhu',
       'Moja garáž (do 20 áut)',
     ],
   },
@@ -42,18 +46,10 @@ const plans = [
     price: '€49',
     period: 'mesačne',
     description: 'Pre tímy a väčšie autobazáre.',
-    cta: 'Zvoliť Premium',
-    href: '/register?plan=premium',
+    cta: 'Pripravujeme',
+    href: null,
     highlighted: false,
-    features: [
-      'Všetko z Plus',
-      'Neobmedzené AI inzeráty',
-      'Neobmedzené sledované modely',
-      'Real-time alerty (push + e-mail)',
-      'Anomalie a trhový pulz',
-      'API prístup',
-      'Prioritná podpora < 4h',
-    ],
+    features: ['Všetko z Plus', 'Neobmedzené AI inzeráty', 'Neobmedzené sledované modely'],
   },
 ];
 
@@ -62,10 +58,10 @@ export function Pricing() {
     <section id="pricing" className="container mx-auto px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Jednoduché ceny. Žiadne prekvapenia.
+          Počas bety zadarmo
         </h2>
         <p className="text-muted-foreground mt-4 text-lg">
-          Všetky plány zahŕňajú 7-dňové bezplatné skúšobné obdobie. Bez platobnej karty.
+          Platené plány spustíme po bete. Kto sa zaregistruje teraz, dozvie sa o tom ako prvý.
         </p>
       </div>
 
@@ -80,7 +76,7 @@ export function Pricing() {
             }
           >
             {plan.highlighted && (
-              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Najobľúbenejšie</Badge>
+              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Dostupné teraz</Badge>
             )}
             <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
             <p className="text-muted-foreground mt-1 text-sm">{plan.description}</p>
@@ -88,13 +84,19 @@ export function Pricing() {
               <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
               <span className="text-muted-foreground text-sm">/ {plan.period}</span>
             </div>
-            <Button
-              variant={plan.highlighted ? 'default' : 'outline'}
-              className="mt-6 w-full"
-              render={<Link href={plan.href} />}
-            >
-              {plan.cta}
-            </Button>
+            {plan.href ? (
+              <Button
+                variant={plan.highlighted ? 'default' : 'outline'}
+                className="mt-6 w-full"
+                render={<Link href={plan.href} />}
+              >
+                {plan.cta}
+              </Button>
+            ) : (
+              <Button variant="outline" className="mt-6 w-full" disabled>
+                {plan.cta}
+              </Button>
+            )}
             <ul className="mt-8 space-y-3">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex items-start gap-2 text-sm">
@@ -108,7 +110,7 @@ export function Pricing() {
       </div>
 
       <p className="text-muted-foreground mt-8 text-center text-sm">
-        Cena bez DPH. Pri ročnej platbe ušetríte 2 mesiace.
+        Ceny platených plánov sú orientačné a bez DPH.
       </p>
     </section>
   );

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { formatNumber } from '@/components/app/kpi-card';
-import { isAdminEmail } from '@/lib/auth/admin';
+import { isAdminUser } from '@/lib/auth/admin';
 import { getCurrentUser } from '@/lib/auth/server';
 import {
   getRecentScrapeRuns,
@@ -16,7 +16,7 @@ type Status = ScrapeRunRow['status'];
 
 export default async function ScrapeRunsAdminPage() {
   const user = await getCurrentUser();
-  if (!isAdminEmail(user?.email)) {
+  if (!isAdminUser(user)) {
     notFound();
   }
 

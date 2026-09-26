@@ -13,19 +13,19 @@ const features = [
     icon: BarChart3,
     title: 'Prehľad trhu',
     description:
-      'Denne agregované KPI po regiónoch — počet aktívnych inzerátov, priemerná cena, čas predaja a top trendy.',
+      'Počty inzerátov, mediány cien a trendy po modeloch zo všetkých troch portálov, prepočítané každú noc.',
   },
   {
     icon: LineChart,
     title: 'Analýza modelu',
     description:
-      'Cenová distribúcia (p25 / medián / p75), časový rad za 12 mesiacov a podobné inzeráty na sklade.',
+      'Cenová distribúcia (p25 / medián / p75), vývoj po týždňoch a podobné inzeráty v ponuke.',
   },
   {
     icon: GitCompare,
     title: 'Porovnanie',
     description:
-      'Head-to-head porovnanie dvoch modelov — likvidita, predajná rýchlosť, marža a sezónnosť.',
+      'Dva modely vedľa seba — počet inzerátov v ponuke a mediánová cena.',
   },
   {
     icon: Sparkles,
@@ -37,19 +37,19 @@ const features = [
     icon: Car,
     title: 'Moja garáž',
     description:
-      'Sledujte target margin pre každé auto na sklade. Upozorní vás, keď sa cenová pozícia v trhu zhorší.',
+      'Evidujte autá na sklade a porovnajte ich cenu s aktuálnym trhom.',
   },
   {
     icon: Bell,
     title: 'Sledované modely',
     description:
-      'Nastavte kritériá (model, rok, km, región, max. cena). Príde e-mail hneď ako sa objaví zhoda.',
+      'Nastavte kritériá (model, rok, km, max. cena). Raz denne vám pošleme e-mail s novými zhodami.',
   },
   {
     icon: TrendingUp,
-    title: 'Trhový pulz',
+    title: 'Príležitosti a zlacnenia',
     description:
-      'Anomálie a outliers — modely s neobvykle rýchlym pohybom alebo cenovou dislokáciou voči trhu.',
+      'DealScore označí inzeráty výrazne pod trhovou cenou; pri modeloch vidíte, ako často a o koľko predajcovia zlacňujú.',
   },
 ];
 

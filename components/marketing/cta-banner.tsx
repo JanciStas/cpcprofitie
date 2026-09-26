@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { SITE } from '@/lib/site';
 
 export function CTABanner() {
   return (
@@ -17,15 +18,15 @@ export function CTABanner() {
           Začnite predávať s istotou.
         </h2>
         <p className="text-muted-foreground relative mx-auto mt-4 max-w-2xl text-lg">
-          7 dní zadarmo. Bez platobnej karty. Bez záväzku. Pripojte sa k stovkám slovenských
-          dealerov, ktorí už majú dáta na svojej strane.
+          Počas bety zadarmo. Bez platobnej karty, bez záväzku. Dáta z bazos.sk, autobazar.sk a
+          autobazar.eu na jednom mieste.
         </p>
         <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button size="lg" render={<Link href="/register" />}>
             Vyskúšať zadarmo
           </Button>
-          <Button size="lg" variant="outline" render={<Link href="/contact" />}>
-            Dohodnúť demo
+          <Button size="lg" variant="outline" render={<a href={`mailto:${SITE.contactEmail}`} />}>
+            Napíšte nám
           </Button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { isAdminEmail } from '@/lib/auth/admin';
+import { isAdminUser } from '@/lib/auth/admin';
 import { getCurrentUser } from '@/lib/auth/server';
 import { getDataQualityReport } from '@/lib/db/queries/data-quality';
 
@@ -19,7 +19,7 @@ function tone(value: number, warn: number, bad: number, invert = false): string 
 
 export default async function DataQualityAdminPage() {
   const user = await getCurrentUser();
-  if (!isAdminEmail(user?.email)) notFound();
+  if (!isAdminUser(user)) notFound();
 
   const report = await getDataQualityReport();
 

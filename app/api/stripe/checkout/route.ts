@@ -62,6 +62,11 @@ export async function POST(request: Request) {
       customer_email: user.email,
       client_reference_id: user.id,
       metadata: { userId: user.id },
+      // The webhook reads userId off the SUBSCRIPTION, and session metadata
+      // does not carry over to it. Without this every paying customer was
+      // charged, the webhook logged "missing user metadata", returned 200 so
+      // Stripe never retried, and the user stayed on Free.
+      subscription_data: { metadata: { userId: user.id } },
       success_url: `${baseUrl}${parsed.data.successPath}`,
       cancel_url: `${baseUrl}${parsed.data.cancelPath}`,
       allow_promotion_codes: true,

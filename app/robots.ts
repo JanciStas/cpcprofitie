@@ -1,6 +1,9 @@
+import { getAppUrl } from '@/lib/app-url';
 import type { MetadataRoute } from 'next';
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cpcprofit.sk';
+// Same source as e-mails and crons. The old fallback pointed search engines
+// at cpcprofit.sk, a domain that is not registered.
+const baseUrl = getAppUrl();
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -38,3 +38,17 @@ describe('safeNextPath', () => {
     expect(safeNextPath('//attacker', '/app/billing')).toBe('/app/billing');
   });
 });
+
+describe('safeNextPath — backslash', () => {
+  it('rejects a backslash that browsers turn into a second slash', () => {
+    // `/\evil.com` passed the single-slash check, and every browser treats it
+    // as `//evil.com`: a freshly logged-in user was sent off-site.
+    const bs = String.fromCharCode(92);
+    expect(safeNextPath(`/${bs}evil.com`)).toBe('/app/overview');
+    expect(safeNextPath(`/app${bs}..${bs}x`)).toBe('/app/overview');
+  });
+
+  it('still accepts an ordinary path', () => {
+    expect(safeNextPath('/app/deals?sort=discount')).toBe('/app/deals?sort=discount');
+  });
+});

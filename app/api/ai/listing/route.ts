@@ -18,9 +18,11 @@ const InputSchema = z.object({
   model: z.string().min(1).max(96),
   year: z.coerce.number().int().min(1980).max(new Date().getFullYear() + 1),
   mileageKm: z.coerce.number().int().min(0).max(2_000_000),
-  fuel: z.string().optional(),
-  transmission: z.string().optional(),
-  bodyType: z.string().optional(),
+  // Bounded: these go straight into the prompt, and an unbounded string was a
+  // way to make one request cost ~200k input tokens.
+  fuel: z.string().max(64).optional(),
+  transmission: z.string().max(64).optional(),
+  bodyType: z.string().max(64).optional(),
   features: z.string().max(1000).optional(),
   priceEur: z.coerce.number().int().min(0).max(2_000_000).optional(),
   tone: z.enum(['formal', 'sales', 'short']).default('sales'),
@@ -42,7 +44,10 @@ export async function POST(request: Request) {
     'unknown';
   // Per-user when authenticated, per-IP otherwise. Tighter limit for anon.
   const bucketKey = user ? `ai-listing:user:${user.id}` : `ai-listing:ip:${ip}`;
-  const limit = user ? 30 : 10;
+  // The monthly quota is checked before streaming but recorded only when the
+  // stream finishes, so parallel requests all pass the check. A tight
+  // per-minute cap bounds how far that race can overshoot.
+  const limit = user ? 5 : 10;
   const verdict = await rateLimit({ key: bucketKey, limit, windowMs: 60_000 });
   if (!verdict.allowed) {
     return Response.json(
@@ -75,6 +80,15 @@ export async function POST(request: Request) {
   // Without an AI Gateway key, stream a deterministic mock so the UI is
   // demoable in local-only mode.
   if (!process.env.AI_GATEWAY_API_KEY) {
+    // In production a canned text dressed up as an AI result is a lie to the
+    // user; say the feature is unavailable instead. The mock stays for local
+    // development, where it is the whole point.
+    if (PROD) {
+      return Response.json(
+        { error: 'ai_unavailable', message: 'AI inzeráty sú dočasne nedostupné.' },
+        { status: 503 },
+      );
+    }
     return new Response(mockStream(input), {
       headers: {
         'content-type': 'text/plain; charset=utf-8',
@@ -97,7 +111,7 @@ export async function POST(request: Request) {
         {
           error: 'quota_exceeded',
           limit: quota.limit,
-          message: `Vyčerpali ste mesačný limit ${quota.limit} AI inzerátov. Prejdite na vyšší plán v sekcii Predplatné.`,
+          message: `Vyčerpali ste mesačný limit ${quota.limit} AI inzerátov. Limit sa obnoví začiatkom mesiaca.`,
         },
         { status: 429 },
       );

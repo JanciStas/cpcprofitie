@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
-import { isAdminEmail } from '@/lib/auth/admin';
+import { isAdminRequestOrigin, isAdminUser } from '@/lib/auth/admin';
 import { getCurrentUser } from '@/lib/auth/server';
 import { refreshFingerprints } from '@/lib/dedup/cluster';
 
@@ -24,7 +24,7 @@ async function authorize(request: Request): Promise<boolean> {
   const auth = request.headers.get('authorization');
   if (secret && auth === `Bearer ${secret}`) return true;
   const user = await getCurrentUser();
-  return isAdminEmail(user?.email);
+  return isAdminUser(user) && isAdminRequestOrigin(request);
 }
 
 export async function GET(request: Request) {

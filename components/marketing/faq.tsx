@@ -1,3 +1,4 @@
+import { SITE } from '@/lib/site';
 import {
   Accordion,
   AccordionContent,
@@ -5,38 +6,38 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 
+// Every answer here has to be true of the product as it runs today. The
+// previous list promised a REST API, a customer portal that could not be
+// reached, German and Czech feeds, an AI fallback that is not wired, and said
+// no seller data is stored while seller names are.
 const items = [
   {
     q: 'Odkiaľ pochádzajú dáta o cenách?',
-    a: 'Agregujeme verejné inzeráty zo slovenských a stredoeurópskych autobazárov v 6-hodinových intervaloch. Spracúvame výhradne anonymizované metaúdaje (model, rok, km, cena, región) — žiadne kontaktné údaje predajcov.',
+    a: 'Zo zverejnených inzerátov na bazos.sk, autobazar.sk a autobazar.eu. Zbierame údaje o vozidle — model, rok, nájazd, cenu, lokalitu — a názov predajcu, ak ho portál zverejňuje. Telefónne čísla predajcov nezobrazujeme.',
   },
   {
     q: 'Ako často sa dáta aktualizujú?',
-    a: 'Listingy sa zbierajú každých 6 hodín. Trhové agregáty (priemery, mediány, distribúcie) sa prepočítavajú nightly. AI insights a watchlist alerty fungujú v reálnom čase.',
+    a: 'Nové inzeráty zbierame každé 2 hodiny, detaily a ceny sa dopĺňajú priebežne každú hodinu. Trhové mediány a trendy sa prepočítavajú raz denne v noci. Aktuálny stav vidíte na stránke Stav dát.',
   },
   {
-    q: 'Ako zruším predplatné?',
-    a: 'Kedykoľvek priamo z účtu cez Stripe Customer Portal — jedným klikom, bez telefonátov a "udržiavania". Prístup vám zostane do konca zaplateného obdobia.',
+    q: 'Koľko to stojí?',
+    a: 'Počas bety nič. Platené plány spustíme až potom a včas vás o nich upozorníme — bez vášho súhlasu vám nikdy nič nestrhneme.',
   },
   {
-    q: 'Funguje CPCProfit aj pre českú alebo rakúsku stranu trhu?',
-    a: 'Aktuálne sú primárnym zdrojom slovenské bazáre. Nemecké a české feedy sú v príprave a dostupné v Premium pláne v priebehu roka.',
+    q: 'Funguje CPCProfit aj pre český trh?',
+    a: 'Nie, zameriavame sa na Slovensko. České inzeráty z autobazar.eu z výpočtu trhových cien zámerne vylučujeme, aby neskresľovali slovenský medián.',
   },
   {
-    q: 'Je platforma vhodná aj pre súkromníkov, nie len pre dealerov?',
-    a: 'Áno — pre súkromného predajcu, ktorý raz za pár rokov mení auto, je Free plán postačujúci. Plus a Premium sú navrhnuté pre profesionálov, ktorí točia desiatky áut mesačne.',
+    q: 'Je platforma vhodná aj pre súkromníkov?',
+    a: 'Pozrieť si trhovú cenu vie ktokoľvek, no produkt je navrhnutý pre profesionálnych predajcov, ktorí nakupujú a predávajú vozidlá pravidelne.',
   },
   {
     q: 'Aké AI modely sa používajú na generovanie inzerátov?',
-    a: 'V základe Anthropic Claude Haiku 4.5 cez Vercel AI Gateway, s automatickým fallbackom na OpenAI GPT-5-mini. Žiadne dáta sa nepoužívajú na trénovanie — Vercel Gateway garantuje zero data retention.',
+    a: 'Anthropic Claude Haiku cez Vercel AI Gateway. Vaše vstupy sa nepoužívajú na trénovanie modelov.',
   },
   {
-    q: 'Ako spĺňate GDPR a ochranu údajov?',
-    a: 'Spracúvame iba účet zákazníka (e-mail, fakturačné údaje) a obchodné dáta vašich áut. Nikdy neukladáme osobné údaje predajcov z verejných inzerátov. Hostujeme v EÚ regiónoch (Frankfurt).',
-  },
-  {
-    q: 'Mám API prístup pre integráciu s vlastným systémom?',
-    a: 'Áno, v Premium pláne. REST API umožňuje načítať trhové snapshots, vytvárať watchlisty a generovať AI inzeráty programaticky. Dokumentácia a API kľúče sú v účte.',
+    q: 'Ako chránite moje údaje?',
+    a: 'O vás spracúvame len to, čo treba na fungovanie účtu: e-mail a údaje, ktoré si sami uložíte (garáž, sledované modely). Podrobnosti nájdete v Ochrane údajov.',
   },
 ];
 
@@ -49,8 +50,8 @@ export function FAQ() {
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Časté otázky</h2>
             <p className="text-muted-foreground mt-4 text-lg">
               Niečo, čo nie je v zozname? Napíšte nám na{' '}
-              <a href="mailto:hello@cpcprofit.sk" className="text-primary hover:underline">
-                hello@cpcprofit.sk
+              <a href={`mailto:${SITE.contactEmail}`} className="text-primary hover:underline">
+                {SITE.contactEmail}
               </a>
               .
             </p>

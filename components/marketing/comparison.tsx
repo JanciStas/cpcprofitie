@@ -32,8 +32,8 @@ export function Comparison() {
             Rozdiel, ktorý cítite na výplate
           </h2>
           <p className="text-muted-foreground mt-4 text-lg">
-            Predajcovia, ktorí prešli na CPCProfit, hlásia v priemere o 12 % vyššiu maržu na vozidlo
-            už za prvý kvartál.
+            Namiesto hodín prezerania troch portálov máte trhovú cenu, porovnanie a hodnotenie
+            ponuky na jednom mieste.
           </p>
         </div>
 

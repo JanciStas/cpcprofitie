@@ -14,11 +14,11 @@ const links = [
   { href: '/app/garage', label: 'Garáž' },
   { href: '/app/watchlist', label: 'Watchlist' },
   { href: '/app/ai-listing', label: 'AI inzerát' },
-  { href: '/app/billing', label: 'Predplatné' },
-  { href: '/app/profile', label: 'Profil' },
+  { href: '/app/profile', label: 'Účet' },
 ];
 
-export function MobileNav() {
+export function MobileNav({ aiAvailable = true }: { aiAvailable?: boolean }) {
+  const visible = aiAvailable ? links : links.filter((l) => l.href !== '/app/ai-listing');
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -67,7 +67,7 @@ export function MobileNav() {
               </button>
             </div>
             <nav className="mt-6 flex flex-col gap-1">
-              {links.map((link) => {
+              {visible.map((link) => {
                 const active = pathname === link.href || pathname.startsWith(link.href + '/');
                 return (
                   <Link

@@ -1,5 +1,9 @@
 import Link from 'next/link';
+import { SITE } from '@/lib/site';
 
+// Only routes that exist. The footer used to link /changelog, /about,
+// /partners and /legal/cookies, all 404s; a footer full of dead ends is the
+// first thing a visitor checking whether a service is real will click.
 const columns = [
   {
     title: 'Produkt',
@@ -7,16 +11,12 @@ const columns = [
       { href: '/#features', label: 'Funkcie' },
       { href: '/#pricing', label: 'Cenník' },
       { href: '/#faq', label: 'FAQ' },
-      { href: '/changelog', label: 'Changelog' },
+      { href: '/status', label: 'Stav dát' },
     ],
   },
   {
-    title: 'Spoločnosť',
-    links: [
-      { href: '/about', label: 'O nás' },
-      { href: '/contact', label: 'Kontakt' },
-      { href: '/partners', label: 'Partnerský program' },
-    ],
+    title: 'Kontakt',
+    links: [{ href: `mailto:${SITE.contactEmail}`, label: SITE.contactEmail }],
   },
   {
     title: 'Právne',

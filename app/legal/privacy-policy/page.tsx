@@ -1,11 +1,13 @@
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { SiteHeader } from '@/components/marketing/site-header';
+import { OperatorBlock } from '@/components/legal/operator-block';
+import { SITE } from '@/lib/site';
 
 export const metadata = {
   title: 'Ochrana osobných údajov',
 };
 
-const LAST_UPDATED = '2026-05-08';
+const LAST_UPDATED = '2026-09-26';
 
 export default function PrivacyPage() {
   return (
@@ -18,20 +20,15 @@ export default function PrivacyPage() {
             <p className="text-muted-foreground mt-2 text-sm">
               Posledná aktualizácia: {LAST_UPDATED}
             </p>
-            <div className="bg-muted/30 text-muted-foreground mt-6 rounded-lg border p-3 text-xs">
-              Tento dokument je <strong>návrh pred právnym preskúmaním</strong> v zmysle GDPR
-              (Nariadenie EÚ 2016/679) a zákona 18/2018 Z. z. Pred GA ho schváli právny
-              poradca.
-            </div>
           </header>
 
           <div className="prose prose-invert mt-10 space-y-8 text-sm leading-relaxed">
             <Section title="1. Prevádzkovateľ">
+              <OperatorBlock />
               <p>
-                Prevádzkovateľom v zmysle GDPR je spoločnosť prevádzkujúca platformu CPCProfit.
-                Kontakt pre otázky ohľadom súkromia:{' '}
-                <a href="mailto:privacy@cpcprofit.sk" className="text-primary hover:underline">
-                  privacy@cpcprofit.sk
+                Otázky ohľadom súkromia:{' '}
+                <a href={`mailto:${SITE.privacyEmail}`} className="text-primary hover:underline">
+                  {SITE.privacyEmail}
                 </a>
                 .
               </p>
@@ -40,8 +37,8 @@ export default function PrivacyPage() {
             <Section title="2. Aké údaje spracúvame">
               <ul className="list-disc space-y-1 pl-5">
                 <li>
-                  <strong>Účet:</strong> e-mail, meno (z Google OAuth profilu), avatar URL,
-                  jazyk, časová zóna.
+                  <strong>Účet:</strong> e-mail a heslo (uložené len v hašovanej podobe u
+                  poskytovateľa autentifikácie).
                 </li>
                 <li>
                   <strong>Fakturácia:</strong> spracovávaná Stripe Payments Europe Ltd. — my
@@ -52,8 +49,8 @@ export default function PrivacyPage() {
                   (Watchlist), AI generované texty inzerátov.
                 </li>
                 <li>
-                  <strong>Telemetria:</strong> anonymizované metriky používania (Vercel
-                  Analytics) — iba ak Užívateľ povolil v cookies banneri.
+                  <strong>Telemetria:</strong> anonymné štatistiky návštevnosti (Vercel
+                  Analytics), ktoré nepoužívajú cookies a neidentifikujú návštevníka.
                 </li>
                 <li>
                   <strong>Chybové stopy:</strong> Sentry Error Tracking — bez osobných údajov.
@@ -63,11 +60,14 @@ export default function PrivacyPage() {
 
             <Section title="3. Verejné inzeráty z autobazárov">
               <p>
-                Z verejne dostupných stránok (autobazar.sk a ďalšie) agregujeme{' '}
-                <strong>iba anonymizované metaúdaje</strong> o vozidlách: značka, model, rok
-                výroby, najazdené kilometre, palivo, prevodovka, predajná cena, región, URL
-                inzerátu. <strong>Telefónne čísla, e-mailové adresy ani mená predajcov nikdy
-                neukladáme</strong> a nespájame s identitou predajcov.
+                Z verejne zverejnených inzerátov na bazos.sk, autobazar.sk a autobazar.eu
+                spracúvame údaje o vozidle: značka, model, rok výroby, najazdené kilometre,
+                palivo, prevodovka, cena, lokalita, fotografie (odkazom, neukladáme ich), VIN ak je
+                zverejnený, a URL inzerátu. Ak portál zverejňuje názov predajcu (typicky
+                autobazára), ukladáme aj ten. <strong>Telefónne čísla ani e-mailové adresy
+                predajcov nezobrazujeme</strong> a údaje nepoužívame na kontaktovanie predajcov.
+                Právnym základom je oprávnený záujem (čl. 6 ods. 1 f GDPR) na analýze trhu
+                z verejne dostupných údajov.
               </p>
             </Section>
 
@@ -90,12 +90,12 @@ export default function PrivacyPage() {
 
             <Section title="6. Príjemcovia údajov">
               <ul className="list-disc space-y-1 pl-5">
-                <li>Vercel Inc. (hosting, EÚ regióny — Frankfurt)</li>
-                <li>Supabase (databáza a autentifikácia, EÚ región)</li>
-                <li>Stripe Payments Europe Ltd. (platby, Írsko)</li>
-                <li>Resend (transakčné e-maily, EÚ región)</li>
-                <li>Anthropic (cez Vercel AI Gateway, zero data retention)</li>
-                <li>Sentry (error tracking, EÚ región)</li>
+                <li>Vercel Inc. (hosting)</li>
+                <li>Supabase Inc. (databáza a autentifikácia)</li>
+                <li>Resend (odosielanie e-mailov)</li>
+                <li>Anthropic (generovanie AI inzerátov, cez Vercel AI Gateway)</li>
+                <li>Functional Software Inc. — Sentry (zaznamenávanie chýb)</li>
+                <li>Stripe Payments Europe Ltd. (platby — až po spustení platených plánov)</li>
               </ul>
             </Section>
 
@@ -104,8 +104,8 @@ export default function PrivacyPage() {
                 Máte právo na prístup k údajom, ich opravu, vymazanie, obmedzenie spracúvania,
                 prenos a podanie sťažnosti dozornému orgánu (Úrad na ochranu osobných údajov SR).
                 Žiadosti smerujte na{' '}
-                <a href="mailto:privacy@cpcprofit.sk" className="text-primary hover:underline">
-                  privacy@cpcprofit.sk
+                <a href={`mailto:${SITE.privacyEmail}`} className="text-primary hover:underline">
+                  {SITE.privacyEmail}
                 </a>{' '}
                 — odpoveď do 30 dní.
               </p>
@@ -113,9 +113,12 @@ export default function PrivacyPage() {
 
             <Section title="8. Cookies">
               <p>
-                Nevyhnutné cookies (prihlásenie, jazyk) sú aktívne automaticky. Analytické a
-                marketingové cookies sa zapnú iba s Vašim výslovným súhlasom v banneri pri prvej
-                návšteve — výber môžete kedykoľvek zmeniť cez nastavenia účtu.
+                Používame len nevyhnutné cookies potrebné na prihlásenie. Podrobnosti sú na
+                stránke{' '}
+                <a href="/legal/cookies" className="text-primary hover:underline">
+                  Cookies
+                </a>
+                .
               </p>
             </Section>
           </div>

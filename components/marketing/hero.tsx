@@ -24,7 +24,7 @@ export function Hero() {
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
             Predávajte autá so{' '}
             <span className="from-primary to-chart-2 bg-gradient-to-r bg-clip-text text-transparent">
-              zaručenou maržou
+              dátami, nie odhadom
             </span>
             .
           </h1>
@@ -36,7 +36,7 @@ export function Hero() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" render={<Link href="/register" />}>
-              Vyskúšať 7 dní zadarmo
+              Vyskúšať zadarmo
             </Button>
             <Button size="lg" variant="outline" render={<Link href="#features" />}>
               Pozrieť funkcie
@@ -44,7 +44,7 @@ export function Hero() {
           </div>
 
           <p className="text-muted-foreground mt-6 text-sm">
-            Bez platobnej karty · Zrušíte kedykoľvek
+            Počas bety zadarmo · Bez platobnej karty
           </p>
         </div>
 
@@ -63,14 +63,12 @@ export function Hero() {
             </div>
             <div className="grid gap-4 p-6 sm:grid-cols-3">
               {[
-                { label: 'Aktívne inzeráty', value: '24 318', delta: '+312 dnes', positive: true },
-                { label: 'Priemerná marža', value: '€1 847', delta: '+8.2 % MoM', positive: true },
-                {
-                  label: 'Najrýchlejšie predávané',
-                  value: 'Škoda Octavia',
-                  delta: '17 dní avg.',
-                  positive: true,
-                },
+                // Facts about the product, not invented market figures. This panel
+                // used to show hardcoded KPIs ("€1 847 priemerná marža",
+                // "+8.2 % MoM") dressed as a screenshot of the live dashboard.
+                { label: 'Zdroje', value: '3 portály', delta: 'bazos · autobazar.sk · .eu', positive: true },
+                { label: 'Aktualizácia cien', value: 'každé 2 h', delta: 'automaticky', positive: true },
+                { label: 'Hodnotenie ponuky', value: 'DealScore', delta: 'voči mediánu trhu', positive: true },
               ].map((kpi) => (
                 <div
                   key={kpi.label}

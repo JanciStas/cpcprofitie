@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { Analytics } from '@vercel/analytics/next';
+import { getAppUrl } from '@/lib/app-url';
 import { Toaster } from 'sonner';
 import { CookiesBanner } from '@/components/cookies-banner';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -19,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://cpcprofit.sk'),
+  metadataBase: new URL(getAppUrl()),
   title: {
     default: 'CPCProfit — Dáta pre obchodníkov s vozidlami',
     template: '%s · CPCProfit',

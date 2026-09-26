@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isAdminEmail } from '@/lib/auth/admin';
+import { isAdminUser } from '@/lib/auth/admin';
 import { getCurrentUser } from '@/lib/auth/server';
 import { isSameOrigin } from '@/lib/auth/csrf';
 import {
@@ -30,7 +30,7 @@ export async function POST(request: Request, ctx: Ctx) {
   if (!user?.email) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  if (!isAdminEmail(user.email)) {
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 

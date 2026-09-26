@@ -1,13 +1,9 @@
+import Link from 'next/link';
 import { LogOut } from 'lucide-react';
+import { SITE } from '@/lib/site';
 import { getCurrentUser } from '@/lib/auth/server';
 
 export const metadata = { title: 'Profil' };
-
-const LOCALES = [
-  { value: 'sk', label: 'Slovenčina' },
-  { value: 'cs', label: 'Čeština (čoskoro)' },
-  { value: 'en', label: 'English (čoskoro)' },
-];
 
 const PROVIDER_LABELS: Record<string, string> = {
   email: 'E-mail a heslo',
@@ -24,60 +20,52 @@ export default async function ProfilePage() {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-3xl font-bold tracking-tight">Profil</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Nastavenia účtu, jazyka a notifikácií.
+          Váš účet, plán a upozornenia.
         </p>
 
         <section className="border-border/40 bg-card/30 mt-8 rounded-xl border p-6">
           <h2 className="text-base font-semibold tracking-tight">Identita</h2>
           <dl className="mt-4 space-y-3 text-sm">
-            <Row label="E-mail" value={user?.email ?? 'neprihlásený (UI demo)'} />
+            <Row label="E-mail" value={user?.email ?? '—'} />
             <Row label="ID účtu" value={user?.id ?? '—'} mono />
             <Row label="Spôsob prihlásenia" value={signInMethod} />
           </dl>
         </section>
 
         <section className="border-border/40 bg-card/30 mt-6 rounded-xl border p-6">
-          <h2 className="text-base font-semibold tracking-tight">Jazyk rozhrania</h2>
+          <h2 className="text-base font-semibold tracking-tight">Plán</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Aktuálne podporujeme slovenčinu. České a anglické rozhranie pridáme v budúcom kvartáli.
+            Počas bety máte CPCProfit zadarmo.{' '}
+            <Link href="/app/billing" className="text-primary hover:underline">
+              Využitie limitov
+            </Link>
           </p>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {LOCALES.map((loc) => (
-              <button
-                key={loc.value}
-                type="button"
-                disabled={loc.value !== 'sk'}
-                className={
-                  loc.value === 'sk'
-                    ? 'border-primary bg-primary/10 text-primary rounded-lg border px-3 py-2 text-sm font-medium'
-                    : 'border-border/60 text-muted-foreground rounded-lg border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
-                }
-              >
-                {loc.label}
-              </button>
-            ))}
-          </div>
+        </section>
+
+        {/* These alerts do run: the watchlist cron at 06:00 UTC and the Monday
+            digest. They used to be listed here as "(čoskoro)" behind disabled
+            toggles that saved nothing. The switch that controls them lives on
+            each watchlist entry, so point there instead of faking a setting. */}
+        <section className="border-border/40 bg-card/30 mt-6 rounded-xl border p-6">
+          <h2 className="text-base font-semibold tracking-tight">Upozornenia</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            E-mail s novými zhodami chodí raz denne pre každý sledovaný model, ktorý má zapnuté
+            upozornenia. V pondelok k tomu posielame týždenný súhrn trhu.{' '}
+            <Link href="/app/watchlist" className="text-primary hover:underline">
+              Spravovať sledované modely
+            </Link>
+          </p>
         </section>
 
         <section className="border-border/40 bg-card/30 mt-6 rounded-xl border p-6">
-          <h2 className="text-base font-semibold tracking-tight">Notifikácie</h2>
+          <h2 className="text-base font-semibold tracking-tight">Vaše údaje</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            E-mail alerty a digest pripravujeme — nastavenia sprístupníme po ich spustení.
+            Kópiu svojich údajov alebo zmazanie účtu si vyžiadate na{' '}
+            <a href={`mailto:${SITE.privacyEmail}`} className="text-primary hover:underline">
+              {SITE.privacyEmail}
+            </a>
+            . Vybavíme to do 30 dní.
           </p>
-          <div className="mt-4 space-y-3">
-            <NotificationToggle
-              label="Watchlist alerty (čoskoro)"
-              description="E-mail keď sa objaví zhoda s vašimi kritériami"
-            />
-            <NotificationToggle
-              label="Týždenný digest (čoskoro)"
-              description="Súhrn pohybov v sledovaných modeloch každý pondelok"
-            />
-            <NotificationToggle
-              label="Anomálie a trhový pulz (čoskoro)"
-              description="Push pri neočakávaných cenových pohyboch (Premium)"
-            />
-          </div>
         </section>
 
         <section className="border-destructive/30 bg-destructive/5 mt-8 rounded-xl border p-6">
@@ -106,23 +94,5 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <dt className="text-muted-foreground">{label}</dt>
       <dd className={mono ? 'font-mono text-xs' : ''}>{value}</dd>
     </div>
-  );
-}
-
-// Notification delivery isn't built yet — render the planned options
-// disabled so the UI doesn't pretend to save a preference it can't.
-function NotificationToggle({ label, description }: { label: string; description: string }) {
-  return (
-    <label className="border-border/40 bg-background/30 flex items-start justify-between gap-4 rounded-lg border p-3 opacity-60">
-      <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-muted-foreground text-xs">{description}</p>
-      </div>
-      <input
-        type="checkbox"
-        disabled
-        className="mt-0.5 size-4 cursor-not-allowed accent-[var(--color-primary)]"
-      />
-    </label>
   );
 }
