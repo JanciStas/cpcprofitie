@@ -44,17 +44,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <span className="text-muted-foreground hidden text-xs sm:inline">
-              {user?.email ?? 'hosť'}
-            </span>
-            <form action="/auth/sign-out" method="post">
-              <button
-                type="submit"
-                className="border-border/60 hover:bg-muted rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+            {user ? (
+              <>
+                <span className="text-muted-foreground hidden text-xs sm:inline">{user.email}</span>
+                <form action="/auth/sign-out" method="post">
+                  <button
+                    type="submit"
+                    className="border-border/60 hover:bg-muted rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                  >
+                    Odhlásiť
+                  </button>
+                </form>
+              </>
+            ) : (
+              // Market pages are public, so visitors arrive here signed out.
+              // They used to see "hosť" and a sign-out button.
+              <Link
+                href="/login"
+                className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-medium"
               >
-                Odhlásiť
-              </button>
-            </form>
+                Prihlásiť sa
+              </Link>
+            )}
           </div>
         </div>
       </header>
